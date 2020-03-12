@@ -5,11 +5,14 @@
 
 #include "include/logs.h"
 
-static char log_file[MAX_PATH_SIZE] = LOG_FILE;
+static char log_file[MAX_PATH_SIZE + 1] = LOG_FILE;
 
-void write_log(char* action, char *info) {
-  FILE * fp = fopen(log_file, "a");
-  fprintf(fp, "%.2f - %d - %s - %s\n", (float)clock()/CLOCKS_PER_SEC * 1000, getpid(), "CREATE", info);
+// TODO need to fix the time
+// it isn't getting the time since parent start (it gets since its own start)
+void write_log(char *action, char *info) {
+  FILE *fp = fopen(log_file, "a");
+  fprintf(fp, "%.2f - %d - %s - %s\n", (float)clock() / CLOCKS_PER_SEC * 1000,
+          getpid(), action, info);
   fclose(fp);
 }
 
