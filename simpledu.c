@@ -20,7 +20,10 @@ struct cmd_opt {
 };
 static struct cmd_opt cmd_opt;
 
-void print_usage() { exit(1); }
+void print_usage() {
+  fprintf(stderr, "simpledu -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n");
+  exit(1);
+}
 
 void init(int argc, char **argv) {
   set_logfile(getenv(LOG_ENV_NAME));
