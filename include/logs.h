@@ -24,6 +24,9 @@
 #define LOG_SENDPIPE(info) write_log(SENDPIPE_LOG, info)
 #define LOG_ENTRY(info) write_log(ENTRY_LOG, info)
 
+/** @brief Write exit log message and exit with given code */
+void exit_log(int exit_code);
+
 /** @brief Sets the log file name. */
 void set_logfile(char *new_logfile);
 

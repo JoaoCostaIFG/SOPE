@@ -21,8 +21,9 @@ struct cmd_opt {
 static struct cmd_opt cmd_opt;
 
 void print_usage() {
-  fprintf(stderr, "simpledu -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n");
-  exit(1);
+  fprintf(stderr,
+          "simpledu -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n");
+  exit_log(1);
 }
 
 void init(int argc, char **argv) {
@@ -69,6 +70,7 @@ void init(int argc, char **argv) {
       if (!optarg)
         print_usage();
 
+      // TODO error checking
       if (optarg[0] == '=')
         cmd_opt.block_size = atoi(optarg + 1);
       else
@@ -101,5 +103,5 @@ void init(int argc, char **argv) {
 
 int main(int argc, char *argv[]) {
   init(argc, argv);
-  return 0;
+  exit_log(0);
 }

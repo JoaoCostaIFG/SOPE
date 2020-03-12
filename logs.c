@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -14,6 +15,14 @@ void write_log(char *action, char *info) {
   fprintf(fp, "%.2f - %d - %s - %s\n", (float)clock() / CLOCKS_PER_SEC * 1000,
           getpid(), action, info);
   fclose(fp);
+}
+
+void exit_log(int exit_code) {
+  char info[16];
+  sprintf(info, "%d", exit_code);
+
+  LOG_EXIT(info);
+  exit(exit_code);
 }
 
 void set_logfile(char *new_logfile) {
