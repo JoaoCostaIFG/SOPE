@@ -5,6 +5,7 @@
 #define MAX_PATH_SIZE 256
 /** log file name */
 #define LOG_FILE "simpledu_log.txt"
+#define LOG_ENV_NAME "LOG_FILENAME"
 
 /** logs types */
 #define CREATE_LOG "CREATE"
@@ -15,6 +16,9 @@
 #define SENDPIPE_LOG "SEND_PIPE"
 #define ENTRY_LOG "ENTRY"
 
+/** write a log message */
+void write_log(char *action, char *info);
+
 /** log wrappers */
 #define LOG_CREATE(info) write_log(CREATE_LOG, info)
 #define LOG_EXIT(info) write_log(EXIT_LOG, info)
@@ -23,6 +27,9 @@
 #define LOG_RECVPIPE(info) write_log(RECVPIPE_LOG, info)
 #define LOG_SENDPIPE(info) write_log(SENDPIPE_LOG, info)
 #define LOG_ENTRY(info) write_log(ENTRY_LOG, info)
+
+/** @brief Format and write command line arguments to log */
+void write_create_log(int argc, char **argv);
 
 /** @brief Write exit log message and exit with given code */
 void exit_log(int exit_code);

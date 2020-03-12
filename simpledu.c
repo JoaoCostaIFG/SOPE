@@ -1,12 +1,14 @@
-#include <ctype.h>
+#include <dirent.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "include/logs.h"
 
-#define LOG_ENV_NAME "LOG_FILENAME"
+#define STAT_DFLT_SIZE 512
 
 /** options */
 struct cmd_opt {
@@ -28,7 +30,10 @@ void print_usage() {
 }
 
 void init(int argc, char **argv) {
+  /* clrlogs(); */
   set_logfile(getenv(LOG_ENV_NAME));
+
+  write_create_log(argc, argv);
 
   // init cmd line options struct
   cmd_opt.all = 0;
@@ -93,7 +98,7 @@ void init(int argc, char **argv) {
       print_usage();
       break;
     default:
-      printf("?? getopt returned character code 0%o ??\n", c);
+      fprintf(stderr, "getopt returned character code %#X\n", c);
       break;
     }
   }
@@ -107,5 +112,31 @@ void init(int argc, char **argv) {
 
 int main(int argc, char *argv[]) {
   init(argc, argv);
+
+  DIR *dirp;
+  struct dirent *direntp;
+  struct stat stat_buf;
+
+  if ((dirp = opendir(cmd_opt.path)) == NULL) {
+    perror(cmd_opt.path);
+    exit_log(1);
+  }
+
+  chdir(cmd_opt.path);
+  while ((direntp = readdir(dirp)) != NULL) {
+    if (stat(direntp->d_name, &stat_buf) == -1) {
+      perror("stroke no stat");
+      exit_log(1);
+    }
+    
+    unsigned long size = 0;
+    if (cmd_opt.bytes)
+      size = stat_buf.st_size;
+    else
+      size = stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opt.block_size;
+    printf("%lu %lu %s %s\n", direntp->d_ino, size, direntp->d_name, "regular");
+  }
+  closedir(dirp);
+
   exit_log(0);
 }
