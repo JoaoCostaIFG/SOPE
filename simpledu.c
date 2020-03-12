@@ -114,27 +114,34 @@ int main(int argc, char *argv[]) {
   init(argc, argv);
 
   DIR *dirp;
-  struct dirent *direntp;
-  struct stat stat_buf;
-
   if ((dirp = opendir(cmd_opt.path)) == NULL) {
     perror(cmd_opt.path);
     exit_log(1);
   }
 
+  unsigned long size = 0;
+  int stat_ec;
+  struct dirent *direntp;
+  struct stat stat_buf;
+
   chdir(cmd_opt.path);
   while ((direntp = readdir(dirp)) != NULL) {
-    if (stat(direntp->d_name, &stat_buf) == -1) {
-      perror("stroke no stat");
+    if (cmd_opt.dereference)
+      stat_ec = stat(direntp->d_name, &stat_buf);
+    else
+      stat_ec = lstat(direntp->d_name, &stat_buf);
+    if (stat_ec == -1) // failed opening dir
       exit_log(1);
-    }
-    
-    unsigned long size = 0;
+
     if (cmd_opt.bytes)
       size = stat_buf.st_size;
     else
       size = stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opt.block_size;
-    printf("%lu %lu %s %s\n", direntp->d_ino, size, direntp->d_name, "regular");
+
+    if (S_ISREG(stat_buf.st_mode) && cmd_opt.all)
+      printf("%lu %lu %s %s\n", direntp->d_ino, size, direntp->d_name, "regular");
+    else if (S_ISLNK(stat_buf.st_mode) && cmd_opt.all)
+      printf("%lu %lu %s %s\n", direntp->d_ino, size, direntp->d_name, "link");
   }
   closedir(dirp);
 

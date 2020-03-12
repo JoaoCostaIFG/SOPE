@@ -6,8 +6,7 @@
 
 #include "include/logs.h"
 
-// TODO save full path cause chdir
-static char log_file[MAX_PATH_SIZE + 1] = LOG_FILE;
+static char log_file[MAX_PATH_SIZE + 6] = LOG_DIR LOG_FILE;
 
 // TODO need to fix the time
 // it isn't getting the time since parent start (it gets since its own start)
@@ -40,8 +39,10 @@ void exit_log(int exit_code) {
 }
 
 void set_logfile(char *new_logfile) {
-  if (new_logfile)
-    strncpy(log_file, new_logfile, MAX_PATH_SIZE);
+  if (new_logfile) {
+    strcpy(log_file, LOG_DIR);
+    strncpy(log_file + 5, new_logfile, MAX_PATH_SIZE);
+  }
 }
 
 void clrlogs(void) {

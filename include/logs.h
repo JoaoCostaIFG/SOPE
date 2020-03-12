@@ -2,9 +2,16 @@
 #ifndef LOGS_H
 #define LOGS_H
 
+/** max log file name size */
 #define MAX_PATH_SIZE 256
+
+/** log file directory */
+#define LOG_DIR "/tmp/"
+
 /** log file name */
 #define LOG_FILE "simpledu_log.txt"
+
+/** log file environment name */
 #define LOG_ENV_NAME "LOG_FILENAME"
 
 /** logs types */
