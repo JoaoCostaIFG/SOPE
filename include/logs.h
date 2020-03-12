@@ -47,4 +47,4 @@ void set_logfile(char *new_logfile);
 /** @brief Clears the log file. */
 void clrlogs(void);
 
-#endif // __ERR_UTILS_H__
+#endif // LOGS_H
