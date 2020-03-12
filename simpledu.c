@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,11 +71,14 @@ void init(int argc, char **argv) {
       if (!optarg)
         print_usage();
 
-      // TODO error checking
       if (optarg[0] == '=')
         cmd_opt.block_size = atoi(optarg + 1);
       else
         cmd_opt.block_size = atoi(optarg);
+
+      // error checking
+      if (cmd_opt.block_size == 0) // atoi fails or 0
+        exit_log(1);
       break;
     case 'l':
       cmd_opt.count_links = 1;
