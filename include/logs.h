@@ -3,7 +3,7 @@
 #define LOGS_H
 
 /** max log file name size */
-#define MAX_PATH_SIZE 256
+#define MAX_LOG_PATH_SIZE 256
 
 /** log file directory */
 #define LOG_DIR "/tmp/"

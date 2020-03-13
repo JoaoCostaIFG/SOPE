@@ -66,7 +66,7 @@ void init(int argc, char **argv, cmd_opt* cmd_opts) {
 
       // error checking
       if (cmd_opts->block_size == 0) // atoi fails or 0
-        exit_log(1);
+        print_usage();
       break;
     case 'l':
       cmd_opts->count_links = 1;
