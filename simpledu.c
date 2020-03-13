@@ -69,9 +69,8 @@ void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
         !strcmp(direntp->d_name, "..")) // skip "." && ".."
       continue;
 
-    strcpy(path, cmd_opts->path);
-    pathcat(path, direntp->d_name);
-
+    /* get formatted file path */
+    pathcpycat(path, cmd_opts->path, direntp->d_name);
     if ((cmd_opts->dereference ? stat(path, &stat_buf)
                                : lstat(path, &stat_buf)) == -1)
       exit_log(2);

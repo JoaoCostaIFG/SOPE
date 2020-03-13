@@ -38,6 +38,11 @@ void pathcat(char *p1, char *p2) {
   p1[i] = '\0'; // terminate string
 }
 
+void pathcpycat(char* res, char *p1, char *p2) {
+    strcpy(res, p1);
+    pathcat(res, p2);
+}
+
 void init(int argc, char **argv, cmd_opt *cmd_opts) {
   /* clrlogs(); */
   set_logfile(getenv(LOG_ENV_NAME));

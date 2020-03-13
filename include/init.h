@@ -22,6 +22,9 @@ typedef struct cmd_opt cmd_opt;
  * duplicated '/' */
 void pathcat(char *path, char *file_name);
 
+/** @brief similar to pathcat but leaves stores result in res */
+void pathcpycat(char* res, char *p1, char *p2);
+  
 void init(int argc, char **argv, cmd_opt *cmd_opts);
 
 #endif // INIT_H
