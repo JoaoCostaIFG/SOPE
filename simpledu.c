@@ -12,7 +12,7 @@
 
 #define ARGS_MTR_SIZE 6
 
-char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_name) {
+char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) {
   /* args normais, B, depth, path, terminating NULL */
   char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
   if (!args)
@@ -45,19 +45,17 @@ char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_name) {
   }
 
   /* path */
-  if (!(args[i] = (char *)malloc(
-            sizeof(char) * (strlen(cmd_opts->path) + strlen(file_name) + 2))))
+  if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
     exit_log(-1);
-  sprintf(args[i++], "%s/%s", cmd_opts->path, file_name);
+  strcpy(args[i++], file_path);
 
   args[i] = (char *)0;
   return args;
 }
 
-void handle_dir(cmd_opt *cmd_opts, char *pname) {
-  // TODO dir first, then files
+void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
   DIR *dirp;
-  if ((dirp = opendir(cmd_opts->path)) == NULL) {
+  if (!(dirp = opendir(cmd_opts->path))) {
     perror(cmd_opts->path);
     exit_log(2);
   }
@@ -71,7 +69,9 @@ void handle_dir(cmd_opt *cmd_opts, char *pname) {
         !strcmp(direntp->d_name, "..")) // skip "." && ".."
       continue;
 
-    sprintf(path, "%s/%s", cmd_opts->path, direntp->d_name);
+    strcpy(path, cmd_opts->path);
+    pathcat(path, direntp->d_name);
+
     if ((cmd_opts->dereference ? stat(path, &stat_buf)
                                : lstat(path, &stat_buf)) == -1)
       exit_log(2);
@@ -80,27 +80,47 @@ void handle_dir(cmd_opt *cmd_opts, char *pname) {
                ? stat_buf.st_size
                : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size;
 
-    if (S_ISREG(stat_buf.st_mode) && cmd_opts->all)
-      printf("%lu\t%s - %s\n", size, direntp->d_name, "regular");
-    else if (S_ISLNK(stat_buf.st_mode) && cmd_opts->all)
-      printf("%lu\t%s - %s\n", size, direntp->d_name, "link");
-    else if (S_ISDIR(stat_buf.st_mode)) {
+    if (S_ISDIR(stat_buf.st_mode) && dir_run) {
+      printf("%lu\t%s\n", size, path);
       pid_t pid = fork();
       switch (pid) {
       case -1:
         exit_log(-1);
         break;
       case 0: // child
-        execv(pname, assemble_args(pname, cmd_opts, direntp->d_name));
+        execv(pname, assemble_args(pname, cmd_opts, path));
         exit_log(3);
         break;
       default:
         break;
       }
     }
+    else if (!dir_run && cmd_opts->all && (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)))
+      printf("%lu\t%s\n", size, path);
   }
 
   closedir(dirp);
+}
+
+void path_handler(cmd_opt *cmd_opts, char *pname) {
+  /* test if file was given, and handle it */
+  struct stat stat_buf;
+  if ((cmd_opts->dereference ? stat(cmd_opts->path, &stat_buf)
+                             : lstat(cmd_opts->path, &stat_buf)) == -1)
+    exit_log(2);
+  if (!S_ISDIR(stat_buf.st_mode)) {
+    printf("%lu\t%s\n",
+           cmd_opts->bytes
+               ? stat_buf.st_size
+               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size,
+           cmd_opts->path);
+    exit_log(0);
+  }
+
+  /* fork dirs */
+  read_dir_files(cmd_opts, pname, 1);
+  /* handle files */
+  read_dir_files(cmd_opts, pname, 0);
 }
 
 int main(int argc, char *argv[]) {
@@ -110,23 +130,6 @@ int main(int argc, char *argv[]) {
   if (cmd_opts.max_depth == 0) // max depth reached, quit
     exit_log(0);
 
-  /* test if file was given, and handle it */
-  int stat_ec;
-  struct stat stat_buf;
-  stat_ec = cmd_opts.dereference ? stat(cmd_opts.path, &stat_buf)
-                                 : lstat(cmd_opts.path, &stat_buf);
-  if (stat_ec == -1) // failed stat
-    exit_log(2);
-  else if (!S_ISDIR(stat_buf.st_mode)) {
-    printf("%lu\t%s\n",
-           cmd_opts.bytes
-               ? stat_buf.st_size
-               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size,
-           cmd_opts.path);
-    exit_log(0);
-  }
-
-  handle_dir(&cmd_opts, argv[0]);
-
+  path_handler(&cmd_opts, argv[0]);
   exit_log(0);
 }

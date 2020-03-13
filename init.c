@@ -1,6 +1,6 @@
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
 
 #include "include/init.h"
@@ -12,7 +12,33 @@ void print_usage() {
   exit_log(1);
 }
 
-void init(int argc, char **argv, cmd_opt* cmd_opts) {
+void pathcat(char *p1, char *p2) {
+  size_t path_len = strlen(p1);
+  size_t i;
+
+  /* clear duplicated '/' from first path */
+  for (i = 0; i < path_len; ++i) {
+    if (p1[i] != '/' || p1[i + 1] != '/')
+      continue;
+
+    --i;
+    for (size_t j = i + 1; j < path_len - 1; ++j)
+      p1[j] = p1[j + 1];
+    --path_len;
+  }
+
+  /* ensure paths are separated by a '/' */
+  if (i > 0 && p1[i - 1] != '/')
+    p1[i++] = '/';
+
+  /* concatenate both paths removing duplicate '/' from the second one */
+  for (size_t j = 0; i < MAX_PATH_SIZE && j < strlen(p2); ++j)
+    if (!(p1[i - 1] == '/' && p2[j] == '/') || i == 0)
+      p1[i++] = p2[j];
+  p1[i] = '\0'; // terminate string
+}
+
+void init(int argc, char **argv, cmd_opt *cmd_opts) {
   /* clrlogs(); */
   set_logfile(getenv(LOG_ENV_NAME));
 
@@ -89,7 +115,7 @@ void init(int argc, char **argv, cmd_opt* cmd_opts) {
   // TODO check for multiple paths given?
   if (optind < argc) {
     while (optind < argc)
-      strcpy(cmd_opts->path, argv[optind++]);
+      pathcat(cmd_opts->path, argv[optind++]);
   } else {
     fprintf(stderr, "No file/dir path given.\n");
     print_usage();

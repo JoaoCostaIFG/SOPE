@@ -18,6 +18,10 @@ struct cmd_opt {
 };
 typedef struct cmd_opt cmd_opt;
 
+/** @brief concatenate 2 strings separating them with '/' and clearing
+ * duplicated '/' */
+void pathcat(char *path, char *file_name);
+
 void init(int argc, char **argv, cmd_opt *cmd_opts);
 
 #endif // INIT_H
