@@ -1,8 +1,10 @@
 #include <dirent.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "include/init.h"
@@ -16,11 +18,11 @@ char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) {
   /* args normais, B, depth, path, terminating NULL */
   char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
   if (!args)
-    exit_log(-1);
+    exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
 
   /* save program name (argv[0]) */
   if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
-    exit_log(-1);
+    exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
   strcpy(args[0], pname);
 
   /* args */
@@ -34,32 +36,30 @@ char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) {
 
   if (cmd_opts->block_size != 1024) {
     if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
-      exit_log(-1);
+      exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
     sprintf(args[i++], "-B=%d", cmd_opts->block_size);
   }
 
   if (cmd_opts->max_depth != -1) { // decrease max-depth
     if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
-      exit_log(-1);
+      exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
     sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
   }
 
   /* path */
   if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
-    exit_log(-1);
+    exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
   strcpy(args[i++], file_path);
 
   args[i] = (char *)0;
   return args;
 }
 
-/* void child_reaper() {} */
-
 void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts->path))) {
     perror(cmd_opts->path);
-    exit_log(2);
+    exit_perror_log(FAILED_OPENDIR, cmd_opts->path);
   }
 
   struct stat stat_buf;
@@ -75,7 +75,7 @@ void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
     pathcpycat(path, cmd_opts->path, direntp->d_name);
     if ((cmd_opts->dereference ? stat(path, &stat_buf)
                                : lstat(path, &stat_buf)) == -1)
-      exit_log(2);
+      exit_perror_log(NON_EXISTING_ENTRY, path);
 
     size = cmd_opts->bytes
                ? stat_buf.st_size
@@ -86,11 +86,11 @@ void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
       pid_t pid = fork();
       switch (pid) {
       case -1:
-        exit_log(-1);
+        exit_perror_log(FORK_FAIL, "");
         break;
       case 0: // child
         execv(pname, assemble_args(pname, cmd_opts, path));
-        exit_log(3);
+        exit_perror_log(EXEC_FAIL, pname);
         break;
       default:
         break;
@@ -108,14 +108,14 @@ void path_handler(cmd_opt *cmd_opts, char *pname) {
   struct stat stat_buf;
   if ((cmd_opts->dereference ? stat(cmd_opts->path, &stat_buf)
                              : lstat(cmd_opts->path, &stat_buf)) == -1)
-    exit_log(2);
+    exit_perror_log(NON_EXISTING_ENTRY, cmd_opts->path);
   if (!S_ISDIR(stat_buf.st_mode)) {
     printf("%lu\t%s\n",
            cmd_opts->bytes
                ? stat_buf.st_size
                : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size,
            cmd_opts->path);
-    exit_log(0);
+    exit_log(EXIT_SUCCESS);
   }
 
   /* fork dirs */
@@ -124,13 +124,31 @@ void path_handler(cmd_opt *cmd_opts, char *pname) {
   read_dir_files(cmd_opts, pname, 0);
 }
 
+static void handler(int signum) {
+  printf("Recebi ctrl+c\n");
+  exit(1);
+}
+
 int main(int argc, char *argv[]) {
   cmd_opt cmd_opts;
   init(argc, argv, &cmd_opts);
 
+  /* SIG */
+  struct sigaction sa;
+  sa.sa_handler = handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_NOCLDSTOP;
+  if (sigaction(SIGINT, &sa, NULL) == -1) {
+    printf("SIGNACTION FALHOU\n");
+    exit(1);
+  }
+  /* END SIG */
+
+  // depth = 0 => dizer apenas tamanho atual da dir
   if (cmd_opts.max_depth == 0) // max depth reached, quit
     exit_log(0);
 
   path_handler(&cmd_opts, argv[0]); // fork subdirs and process files
-  exit_log(0);
+  sleep(10);
+  exit_log(EXIT_SUCCESS);
 }

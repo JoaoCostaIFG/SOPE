@@ -9,7 +9,7 @@
 void print_usage() {
   fprintf(stderr,
           "simpledu -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n");
-  exit_log(1);
+  exit_log(INIT);
 }
 
 void pathcat(char *p1, char *p2) {
@@ -39,9 +39,9 @@ void pathcat(char *p1, char *p2) {
   p1[i] = '\0'; // terminate string
 }
 
-void pathcpycat(char* res, char *p1, char *p2) {
-    strcpy(res, p1);
-    pathcat(res, p2);
+void pathcpycat(char *res, char *p1, char *p2) {
+  strcpy(res, p1);
+  pathcat(res, p2);
 }
 
 void init(int argc, char **argv, cmd_opt *cmd_opts) {
@@ -76,9 +76,10 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
 
     switch (c) {
     case 0:
-      if (!strcmp(long_options[option_index].name, "max-depth") && optarg)
-        cmd_opts->max_depth = atoi(optarg);
-      else
+      if (!strcmp(long_options[option_index].name, "max-depth") && optarg) {
+        if ((cmd_opts->max_depth = atoi(optarg)) < 0) // TODO test if num
+          exit_err_log(INIT, "--max-depth should be > 0");
+      } else
         print_usage();
       break;
     case 'a':
@@ -97,6 +98,7 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
         cmd_opts->block_size = atoi(optarg);
 
       // error checking
+      // TODO test if num
       if (cmd_opts->block_size == 0) // atoi fails or 0
         print_usage();
       break;
@@ -123,7 +125,6 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
     while (optind < argc)
       pathcat(cmd_opts->path, argv[optind++]);
   } else {
-    fprintf(stderr, "No file/dir path given.\n");
     print_usage();
   }
 }

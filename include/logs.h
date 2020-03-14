@@ -23,6 +23,16 @@
 #define SENDPIPE_LOG "SEND_PIPE"
 #define ENTRY_LOG "ENTRY"
 
+enum exit_codes {
+  INIT = 1,
+  FAILED_OPENDIR = 2,
+  NON_EXISTING_ENTRY = 3,
+  FORK_FAIL = 4,
+  PIPE_FAIL = 5,
+  EXEC_FAIL = 6,
+  MALLOC_FAIL = 7
+};
+
 /** write a log message */
 void write_log(char *action, char *info);
 
@@ -40,6 +50,12 @@ void write_create_log(int argc, char **argv);
 
 /** @brief Write exit log message and exit with given code */
 void exit_log(int exit_code);
+
+/** @brief Write stderr error message and call exit_log. */
+void exit_err_log(int exit_code, char* msg);
+
+/** @brief Write perror message and call exit_log. */
+void exit_perror_log(int exit_code, char* msg);
 
 /** @brief Sets the log file name. */
 void set_logfile(char *new_logfile);

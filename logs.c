@@ -38,6 +38,16 @@ void exit_log(int exit_code) {
   exit(exit_code);
 }
 
+void exit_perror_log(int exit_code, char* msg) {
+  perror(msg);
+  exit_log(exit_code);
+}
+
+void exit_err_log(int exit_code, char* msg) {
+  fprintf(stderr, "%s\n", msg);
+  exit_log(exit_code);
+}
+
 void set_logfile(char *new_logfile) {
   if (new_logfile) {
     strcpy(log_file, LOG_DIR);
