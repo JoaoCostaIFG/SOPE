@@ -22,6 +22,7 @@ void pathcat(char *p1, char *p2) {
       continue;
 
     --i;
+    --path_len;
     for (size_t j = i + 1; j < path_len - 1; ++j)
       p1[j] = p1[j + 1];
     --path_len;

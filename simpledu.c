@@ -53,6 +53,8 @@ char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) {
   return args;
 }
 
+/* void child_reaper() {} */
+
 void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts->path))) {
@@ -93,8 +95,8 @@ void read_dir_files(cmd_opt *cmd_opts, char *pname, int dir_run) {
       default:
         break;
       }
-    }
-    else if (!dir_run && cmd_opts->all && (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)))
+    } else if (!dir_run && cmd_opts->all &&
+               (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)))
       printf("%lu\t%s\n", size, path);
   }
 
@@ -129,6 +131,6 @@ int main(int argc, char *argv[]) {
   if (cmd_opts.max_depth == 0) // max depth reached, quit
     exit_log(0);
 
-  path_handler(&cmd_opts, argv[0]);
+  path_handler(&cmd_opts, argv[0]); // fork subdirs and process files
   exit_log(0);
 }
