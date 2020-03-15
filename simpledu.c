@@ -23,23 +23,32 @@ static void sigint_handler(int signum) {
     return;
 
   // pause children
-  killpg(-pg_id, SIGSTOP);
+  killpg(pg_id, SIGSTOP);
   // get user choice
-  char ans;
+  puts("");
+  int ans;
   do {
+    // loop until either 'n', 'N', 'y' or 'Y' is read from stdin
     printf("Do you really wish to stop execution? [y/n] ");
-  } while (scanf("%c", &ans) != EOF &&
-           (tolower(ans) != 'y' && tolower(ans) != 'n' && ans != '\n'));
+  } while ((ans = getchar()) != EOF &&
+           (tolower(ans) != 'y' && tolower(ans) != 'n'));
+  getchar();
+
   // process decision
   if (tolower(ans) == 'n') { // unpause children
-    killpg(-pg_id, SIGCONT);
+    puts("Continue..");
+    killpg(pg_id, SIGCONT);
   } else { // kill children
-    killpg(-pg_id, SIGTERM);
+    puts("Exiting..");
+    killpg(pg_id, SIGTERM);
     exit_log(EXIT_SUCCESS);
   }
 }
 
 static void set_child_sig(void) {
+  if (getpgrp() == pg_id) // permission already set
+    return;
+
   setpgid(0, pg_id); // set process group id
   /* ignore SIGINT */
   struct sigaction sa;
@@ -51,7 +60,7 @@ static void set_child_sig(void) {
 }
 
 static void set_grandparent_sig(void) {
-  pg_id = getpgid(0); // save process group id for children
+  pg_id = getpid() + 1; // save process group id for children
   /* handle SIGINT */
   struct sigaction sa;
   sa.sa_handler = &sigint_handler;
@@ -67,7 +76,8 @@ void child_reaper(int reap_all) {
       wait(NULL);
     }
   } else {
-    waitpid(-1, NULL, WNOHANG);
+    if (child_num && waitpid(-1, NULL, WNOHANG) > 0)
+      --child_num;
   }
 }
 
@@ -107,17 +117,12 @@ int read_dir_files(cmd_opt *cmd_opts, int dir_run) {
         exit_perror_log(FORK_FAIL, "");
         break;
       case 0: // child
-        /*
-         * // exec
-         * execv(pname, assemble_args(pname, cmd_opts, path));
-         * exit_perror_log(EXEC_FAIL, pname);
-         */
         set_child_sig();
         child_num = 0;
         if (cmd_opts->max_depth > 0)
           --cmd_opts->max_depth;
         strcpy(cmd_opts->path, path);
-        return 1;
+        return 1; // repeat
         break;
       default: // parent
         ++child_num;
@@ -126,6 +131,8 @@ int read_dir_files(cmd_opt *cmd_opts, int dir_run) {
     } else if (!dir_run && cmd_opts->all &&
                (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)))
       printf("%lu\t%s\n", size, path);
+
+    fflush(stdout);
   }
 
   closedir(dirp);
@@ -153,10 +160,10 @@ void path_handler(cmd_opt *cmd_opts) {
     if ((repeat = read_dir_files(cmd_opts, 1)))
       continue;
     /* handle files */
-    read_dir_files(cmd_opts, 0);
+    repeat = read_dir_files(cmd_opts, 0);
   }
 
-  child_reaper(1); // read all processes
+  child_reaper(1); // reap all processes
 }
 
 int main(int argc, char *argv[]) {
@@ -171,44 +178,3 @@ int main(int argc, char *argv[]) {
   path_handler(&cmd_opts); // fork subdirs and process files
   exit_log(EXIT_SUCCESS);
 }
-
-/* static char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) { */
-  /* [> args normais, B, depth, path, terminating NULL <] */
-  /* char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE); */
-  /* if (!args) */
-    /* exit_err_log(MALLOC_FAIL, "Heap memory allocation failure."); */
-
-  /* [> save program name (argv[0]) <] */
-  /* if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1)))) */
-    /* exit_err_log(MALLOC_FAIL, "Heap memory allocation failure."); */
-  /* strcpy(args[0], pname); */
-
-  /* [> args <] */
-  /* int i = 1; // curr arg postion */
-  /* args[i] = malloc(sizeof(char) * 7); */
-  /* sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "", */
-          /* cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "", */
-          /* cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : ""); */
-  /* if (!strcmp(args[1], "-")) */
-    /* free(args[1]); */
-
-  /* if (cmd_opts->block_size != 1024) { */
-    /* if (!(args[i] = (char *)malloc(sizeof(char) * 16))) */
-      /* exit_err_log(MALLOC_FAIL, "Heap memory allocation failure."); */
-    /* sprintf(args[i++], "-B=%d", cmd_opts->block_size); */
-  /* } */
-
-  /* if (cmd_opts->max_depth != -1) { // decrease max-depth */
-    /* if (!(args[i] = (char *)malloc(sizeof(char) * 24))) */
-      /* exit_err_log(MALLOC_FAIL, "Heap memory allocation failure."); */
-    /* sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1); */
-  /* } */
-
-  /* [> path <] */
-  /* if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1)))) */
-    /* exit_err_log(MALLOC_FAIL, "Heap memory allocation failure."); */
-  /* strcpy(args[i++], file_path); */
-
-  /* args[i] = (char *)0; */
-  /* return args; */
-/* } */
