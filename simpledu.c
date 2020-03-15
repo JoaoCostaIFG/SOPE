@@ -14,7 +14,6 @@
 #define STAT_DFLT_SIZE 512
 #define ARGS_MTR_SIZE 6
 
-static pid_t child_pids[256];
 static size_t child_num = 0;
 static pid_t pg_id; /**< process group of children */
 
@@ -76,12 +75,18 @@ void child_reaper(int reap_all) {
       wait(NULL);
     }
   } else {
-    if (child_num && waitpid(-1, NULL, WNOHANG) > 0)
+    while (waitpid(-1, NULL, WNOHANG) > 0) {
       --child_num;
+    }
   }
 }
 
-int read_dir_files(cmd_opt *cmd_opts, int dir_run) {
+void child_reaper_big(void) { child_reaper(1); }
+
+void read_files(cmd_opt *cmd_opts) {
+  if (!cmd_opts->all) // no files to process
+    return;
+
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts->path))) {
     perror(cmd_opts->path);
@@ -93,8 +98,8 @@ int read_dir_files(cmd_opt *cmd_opts, int dir_run) {
   struct dirent *direntp;
   char path[MAX_PATH_SIZE];
   while ((direntp = readdir(dirp))) {
-    if (!strcmp(direntp->d_name, ".") ||
-        !strcmp(direntp->d_name, "..")) // skip "." && ".."
+    /* skip "." && ".." */
+    if (!strcmp(direntp->d_name, ".") || !strcmp(direntp->d_name, ".."))
       continue;
 
     child_reaper(0); // reap children
@@ -109,10 +114,54 @@ int read_dir_files(cmd_opt *cmd_opts, int dir_run) {
                ? stat_buf.st_size
                : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size;
 
-    if (S_ISDIR(stat_buf.st_mode) && dir_run) {
+    if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) {
       printf("%lu\t%s\n", size, path);
-      child_pids[child_num] = fork();
-      switch (child_pids[child_num]) {
+      fflush(stdout);
+    }
+  }
+
+  closedir(dirp);
+}
+
+int read_dirs(cmd_opt *cmd_opts) {
+  DIR *dirp;
+  if (!(dirp = opendir(cmd_opts->path))) {
+    perror(cmd_opts->path);
+    exit_perror_log(FAILED_OPENDIR, cmd_opts->path);
+  }
+
+  struct stat stat_buf;
+  unsigned long size = 0;
+  struct dirent *direntp;
+  char path[MAX_PATH_SIZE];
+  while ((direntp = readdir(dirp))) {
+    /* skip "." && ".." */
+    if (!strcmp(direntp->d_name, ".") || !strcmp(direntp->d_name, ".."))
+      continue;
+
+    child_reaper(0); // reap children
+
+    /* get formatted file path */
+    pathcpycat(path, cmd_opts->path, direntp->d_name);
+    if ((cmd_opts->dereference ? stat(path, &stat_buf)
+                               : lstat(path, &stat_buf)) == -1)
+      exit_perror_log(NON_EXISTING_ENTRY, path);
+
+    size = cmd_opts->bytes
+               ? stat_buf.st_size
+               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size;
+
+    if (S_ISDIR(stat_buf.st_mode)) {
+      printf("%lu\t%s\n", size, path);
+      fflush(stdout);
+      LOG_ENTRY(path);
+
+      // pipe
+      int fd[2];
+      pipe(fd);
+
+      pid_t f = fork();
+      switch (f) {
       case -1: // failed fork
         exit_perror_log(FORK_FAIL, "");
         break;
@@ -128,11 +177,8 @@ int read_dir_files(cmd_opt *cmd_opts, int dir_run) {
         ++child_num;
         break;
       }
-    } else if (!dir_run && cmd_opts->all &&
-               (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)))
-      printf("%lu\t%s\n", size, path);
 
-    fflush(stdout);
+    }
   }
 
   closedir(dirp);
@@ -154,21 +200,18 @@ void path_handler(cmd_opt *cmd_opts) {
     exit_log(EXIT_SUCCESS);
   }
 
-  int repeat = 1;
-  while (repeat) {
-    /* fork dirs */
-    if ((repeat = read_dir_files(cmd_opts, 1)))
+  do {
+    if (read_dirs(cmd_opts)) // fork dirs
       continue;
-    /* handle files */
-    repeat = read_dir_files(cmd_opts, 0);
-  }
-
-  child_reaper(1); // reap all processes
+    read_files(cmd_opts); // handle files
+    break;
+  } while (1);
 }
 
 int main(int argc, char *argv[]) {
   cmd_opt cmd_opts;
   init(argc, argv, &cmd_opts);
+  atexit(&child_reaper_big); // child reaper
   set_grandparent_sig();
 
   // depth = 0 => dizer apenas tamanho atual da dir
