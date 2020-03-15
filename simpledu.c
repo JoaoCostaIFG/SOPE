@@ -18,8 +18,8 @@
 
 static size_t child_num = 0;
 
-struct child_elem { // TODO careful com signess de pid_t
-  pid_t pid;        // if > 0 pid o process, if <= 0 size of dir
+struct child_elem {
+  pid_t pid; // if > 0 pid o process, if -1 process dead
   int fd[2];
 };
 typedef struct child_elem child_elem;
@@ -36,16 +36,14 @@ void pipe_send(cmd_opt *cmd_opts) {
     if (fprintf(fp, "%u\n", my_size) < 0)
       exit_perror_log(PIPE_FAIL, "Writing to pipe failure");
     fclose(fp);
-    // log pipe send // TODO
-    char str[200];
-    sprintf(str, "%u", my_size);
-    LOG_SENDPIPE(str);
+    write_sendpipe_log(my_size); // log pipe send
   } else {
     my_size += cmd_opts->bytes
                    ? DIR_NUM_BLK * DFLT_BLK_SIZE
                    : DIR_NUM_BLK * DFLT_BLK_SIZE / cmd_opts->block_size;
   }
 
+  write_entry_log(my_size, cmd_opts->path);
   printf("%u\t%s\n", my_size, cmd_opts->path);
   fflush(stdout);
 }
@@ -57,6 +55,8 @@ void rm_child(pid_t pid) {
   unsigned size = 0;
   for (size_t i = 0; i < child_num; ++i) {
     if (children[i].pid == pid) {
+      children[i].pid = -1;
+
       // read pipe info
       FILE *fp;
       if ((fp = fdopen(children[i].fd[READ], "r")) == NULL)
@@ -64,12 +64,8 @@ void rm_child(pid_t pid) {
       if (fscanf(fp, "%u", &size) == EOF)
         exit_perror_log(PIPE_FAIL, "Reading from pipe failure");
       fclose(fp);
-      // log pipe receise // TODO
-      char str[200];
-      sprintf(str, "%u", size);
-      LOG_RECVPIPE(str);
-
-      children[i].pid = -1;
+      close(children[i].fd[READ]); // close fd
+      write_sendpipe_log(my_size); // log pipe receive
 
       /* if (!cmd_opts->separate_dirs) // skip sub-dir size */ // TODO
       my_size += size;
@@ -94,7 +90,6 @@ void child_reaper(int reap_all) {
   }
 }
 
-// TODO LOG ENTRYS
 void read_files(cmd_opt *cmd_opts) {
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts->path))) {
@@ -126,12 +121,55 @@ void read_files(cmd_opt *cmd_opts) {
     if (cmd_opts->all &&
         (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode))) {
       my_size += size;
+
+      write_entry_log(size, path);
       printf("%u\t%s\n", size, path);
       fflush(stdout);
     }
   }
 
   closedir(dirp);
+}
+
+char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) {
+  /* args normais, B, depth, path, terminating NULL */
+  char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
+  if (!args)
+    exit_log(-1);
+
+  /* save program name (argv[0]) */
+  if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
+    exit_log(-1);
+  strcpy(args[0], pname);
+
+  /* args */
+  int i = 1; // curr arg postion
+  args[i] = malloc(sizeof(char) * 7);
+  sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
+          cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
+          cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : "");
+  if (!strcmp(args[1], "-"))
+    free(args[1]);
+
+  if (cmd_opts->block_size != 1024) {
+    if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
+      exit_log(-1);
+    sprintf(args[i++], "-B=%d", cmd_opts->block_size);
+  }
+
+  if (cmd_opts->max_depth != -1) { // decrease max-depth
+    if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
+      exit_log(-1);
+    sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
+  }
+
+  /* path */
+  if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
+    exit_log(-1);
+  strcpy(args[i++], file_path);
+
+  args[i] = (char *)0;
+  return args;
 }
 
 int read_dirs(cmd_opt *cmd_opts) {

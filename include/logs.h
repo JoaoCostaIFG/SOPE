@@ -2,6 +2,8 @@
 #ifndef LOGS_H
 #define LOGS_H
 
+#include <unistd.h>
+
 /** max log file name size */
 #define MAX_LOG_PATH_SIZE 256
 
@@ -22,6 +24,12 @@
 #define RECVPIPE_LOG "RECV_PIPE"
 #define SENDPIPE_LOG "SEND_PIPE"
 #define ENTRY_LOG "ENTRY"
+
+/** signal texts */
+#define SIGCONT_TEXT "SIGCONT"
+#define SIGINT_TEXT "SIGINT"
+#define SIGSTOP_TEXT "SIGSTOP"
+#define SIGTERM_TEXT "SIGTERM"
 
 enum exit_codes {
   INIT = 1,
@@ -47,17 +55,32 @@ void write_log(char *action, char *info);
 #define LOG_SENDPIPE(info) write_log(SENDPIPE_LOG, info)
 #define LOG_ENTRY(info) write_log(ENTRY_LOG, info)
 
-/** @brief Format and write command line arguments to log */
+/** @brief Format and write entry to log. */
+void write_entry_log(unsigned size, char *name);
+
+/** @brief Format and write command line arguments to log. */
 void write_create_log(int argc, char **argv);
 
-/** @brief Write exit log message and exit with given code */
+/** @brief Format and write signal receiving event to log. */
+void write_recvpipe_log(long info);
+
+/** @brief Format and write signal sending event to log. */
+void write_sendpipe_log(long info);
+
+/** @brief Format and write signal receiving event to log. */
+void write_recvsig_log(int signum);
+
+/** @brief Format and write signal sending event to log. */
+void write_sendsig_log(int signum, pid_t pid);
+
+/** @brief Write exit log message and exit with given code. */
 void exit_log(int exit_code);
 
 /** @brief Write stderr error message and call exit_log. */
-void exit_err_log(int exit_code, char* msg);
+void exit_err_log(int exit_code, char *msg);
 
 /** @brief Write perror message and call exit_log. */
-void exit_perror_log(int exit_code, char* msg);
+void exit_perror_log(int exit_code, char *msg);
 
 /** @brief Sets the log file name. */
 void set_logfile(char *new_logfile);

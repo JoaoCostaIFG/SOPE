@@ -12,9 +12,11 @@ static pid_t pg_id; /**< process group of children */
 void sigint_handler(int signum) {
   if (signum != SIGINT)
     return;
+  write_recvsig_log(SIGINT);
 
   // pause children
-  killpg(pg_id, SIGSTOP);
+  kill(-pg_id, SIGSTOP);
+  write_sendsig_log(SIGSTOP, -pg_id);
   // get user choice
   puts("");
   int ans;
@@ -28,10 +30,12 @@ void sigint_handler(int signum) {
   // process decision
   if (tolower(ans) == 'n') { // unpause children
     puts("Continue..");
-    killpg(pg_id, SIGCONT);
+    kill(-pg_id, SIGCONT);
+    write_sendsig_log(SIGCONT, -pg_id);
   } else { // kill children
     puts("Exiting..");
-    killpg(pg_id, SIGTERM);
+    kill(-pg_id, SIGTERM);
+    write_sendsig_log(SIGTERM, -pg_id);
     exit_log(EXIT_SUCCESS);
   }
 }
