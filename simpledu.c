@@ -1,6 +1,4 @@
-#include <ctype.h>
 #include <dirent.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,83 +8,94 @@
 
 #include "include/init.h"
 #include "include/logs.h"
+#include "include/sigs.h"
 
 #define STAT_DFLT_SIZE 512
 #define ARGS_MTR_SIZE 6
 
+#define READ 0
+#define WRITE 1
+
 static size_t child_num = 0;
-static pid_t pg_id; /**< process group of children */
 
-static void sigint_handler(int signum) {
-  if (signum != SIGINT)
-    return;
+struct child_elem { // TODO careful com signess de pid_t
+  pid_t pid;        // if > 0 pid o process, if <= 0 size of dir
+  int fd[2];
+};
+typedef struct child_elem child_elem;
+static child_elem children[256];
+static int parent_pipe[2];
+static unsigned my_size;
 
-  // pause children
-  killpg(pg_id, SIGSTOP);
-  // get user choice
-  puts("");
-  int ans;
-  do {
-    // loop until either 'n', 'N', 'y' or 'Y' is read from stdin
-    printf("Do you really wish to stop execution? [y/n] ");
-  } while ((ans = getchar()) != EOF &&
-           (tolower(ans) != 'y' && tolower(ans) != 'n'));
-  getchar();
-
-  // process decision
-  if (tolower(ans) == 'n') { // unpause children
-    puts("Continue..");
-    killpg(pg_id, SIGCONT);
-  } else { // kill children
-    puts("Exiting..");
-    killpg(pg_id, SIGTERM);
-    exit_log(EXIT_SUCCESS);
+void pipe_send(cmd_opt *cmd_opts) {
+  if (getpid() + 1 != get_pg_id()) {
+    // write pipe
+    FILE *fp;
+    if ((fp = fdopen(parent_pipe[WRITE], "w")) == NULL)
+      exit_perror_log(FILE_OPEN_ERROR, "Failure opening file");
+    if (fprintf(fp, "%u\n", my_size) < 0)
+      exit_perror_log(PIPE_FAIL, "Writing to pipe failure");
+    fclose(fp);
+    // log pipe send // TODO
+    char str[200];
+    sprintf(str, "%u", my_size);
+    LOG_SENDPIPE(str);
+  } else {
+    my_size += cmd_opts->bytes
+                   ? DIR_NUM_BLK * DFLT_BLK_SIZE
+                   : DIR_NUM_BLK * DFLT_BLK_SIZE / cmd_opts->block_size;
   }
+
+  printf("%u\t%s\n", my_size, cmd_opts->path);
+  fflush(stdout);
 }
 
-static void set_child_sig(void) {
-  if (getpgrp() == pg_id) // permission already set
+void rm_child(pid_t pid) {
+  if (pid < 0)
     return;
 
-  setpgid(0, pg_id); // set process group id
-  /* ignore SIGINT */
-  struct sigaction sa;
-  sa.sa_handler = SIG_IGN;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_NOCLDSTOP;
-  if (sigaction(SIGINT, &sa, NULL) == -1)
-    exit_perror_log(SIG_FAIL, "ignoring SIGINT handler failed.");
-}
+  unsigned size = 0;
+  for (size_t i = 0; i < child_num; ++i) {
+    if (children[i].pid == pid) {
+      // read pipe info
+      FILE *fp;
+      if ((fp = fdopen(children[i].fd[READ], "r")) == NULL)
+        exit_perror_log(FILE_OPEN_ERROR, "Failure opening file");
+      if (fscanf(fp, "%u", &size) == EOF)
+        exit_perror_log(PIPE_FAIL, "Reading from pipe failure");
+      fclose(fp);
+      // log pipe receise // TODO
+      char str[200];
+      sprintf(str, "%u", size);
+      LOG_RECVPIPE(str);
 
-static void set_grandparent_sig(void) {
-  pg_id = getpid() + 1; // save process group id for children
-  /* handle SIGINT */
-  struct sigaction sa;
-  sa.sa_handler = &sigint_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_NOCLDSTOP;
-  if (sigaction(SIGINT, &sa, NULL) == -1)
-    exit_perror_log(SIG_FAIL, "setting SIGINT handler failed.");
+      children[i].pid = -1;
+
+      /* if (!cmd_opts->separate_dirs) // skip sub-dir size */ // TODO
+      my_size += size;
+      return;
+    }
+  }
 }
 
 void child_reaper(int reap_all) {
+  if (!child_num)
+    return;
+
   if (reap_all) {
     for (size_t i = 0; i < child_num; ++i) {
-      wait(NULL);
+      rm_child(wait(NULL));
     }
   } else {
-    while (waitpid(-1, NULL, WNOHANG) > 0) {
-      --child_num;
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+      rm_child(pid);
     }
   }
 }
 
-void child_reaper_big(void) { child_reaper(1); }
-
+// TODO LOG ENTRYS
 void read_files(cmd_opt *cmd_opts) {
-  if (!cmd_opts->all) // no files to process
-    return;
-
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts->path))) {
     perror(cmd_opts->path);
@@ -94,7 +103,7 @@ void read_files(cmd_opt *cmd_opts) {
   }
 
   struct stat stat_buf;
-  unsigned long size = 0;
+  unsigned size = 0;
   struct dirent *direntp;
   char path[MAX_PATH_SIZE];
   while ((direntp = readdir(dirp))) {
@@ -114,8 +123,10 @@ void read_files(cmd_opt *cmd_opts) {
                ? stat_buf.st_size
                : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size;
 
-    if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) {
-      printf("%lu\t%s\n", size, path);
+    if (cmd_opts->all &&
+        (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode))) {
+      my_size += size;
+      printf("%u\t%s\n", size, path);
       fflush(stdout);
     }
   }
@@ -131,7 +142,6 @@ int read_dirs(cmd_opt *cmd_opts) {
   }
 
   struct stat stat_buf;
-  unsigned long size = 0;
   struct dirent *direntp;
   char path[MAX_PATH_SIZE];
   while ((direntp = readdir(dirp))) {
@@ -147,37 +157,39 @@ int read_dirs(cmd_opt *cmd_opts) {
                                : lstat(path, &stat_buf)) == -1)
       exit_perror_log(NON_EXISTING_ENTRY, path);
 
-    size = cmd_opts->bytes
-               ? stat_buf.st_size
-               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size;
-
     if (S_ISDIR(stat_buf.st_mode)) {
-      printf("%lu\t%s\n", size, path);
-      fflush(stdout);
       LOG_ENTRY(path);
 
       // pipe
-      int fd[2];
-      pipe(fd);
-
-      pid_t f = fork();
-      switch (f) {
+      pipe(children[child_num].fd);
+      children[child_num].pid = fork();
+      switch (children[child_num].pid) {
       case -1: // failed fork
         exit_perror_log(FORK_FAIL, "");
         break;
-      case 0: // child
+      case 0:             // child
+        LOG_CREATE(path); // TODO
         set_child_sig();
-        child_num = 0;
+
+        // save parent pipe
+        parent_pipe[READ] = children[child_num].fd[READ];
+        parent_pipe[WRITE] = children[child_num].fd[WRITE];
+        close(parent_pipe[READ]); // close reading end
+        child_num = 0;            // reset child count
+
+        my_size = cmd_opts->bytes ? stat_buf.st_size
+                                  : stat_buf.st_blocks * STAT_DFLT_SIZE /
+                                        cmd_opts->block_size;
         if (cmd_opts->max_depth > 0)
           --cmd_opts->max_depth;
         strcpy(cmd_opts->path, path);
         return 1; // repeat
         break;
-      default: // parent
+      default:                                // parent
+        close(children[child_num].fd[WRITE]); // close writing end
         ++child_num;
         break;
       }
-
     }
   }
 
@@ -206,12 +218,14 @@ void path_handler(cmd_opt *cmd_opts) {
     read_files(cmd_opts); // handle files
     break;
   } while (1);
+
+  child_reaper(1);
+  pipe_send(cmd_opts);
 }
 
 int main(int argc, char *argv[]) {
   cmd_opt cmd_opts;
   init(argc, argv, &cmd_opts);
-  atexit(&child_reaper_big); // child reaper
   set_grandparent_sig();
 
   // depth = 0 => dizer apenas tamanho atual da dir

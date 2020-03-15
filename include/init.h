@@ -5,6 +5,9 @@
 /** max file path size */
 #define MAX_PATH_SIZE 4096
 
+#define DFLT_BLK_SIZE 1024
+#define DIR_NUM_BLK 4
+
 /** options */
 struct cmd_opt {
   int all;
@@ -23,8 +26,8 @@ typedef struct cmd_opt cmd_opt;
 void pathcat(char *path, char *file_name);
 
 /** @brief similar to pathcat but leaves stores result in res */
-void pathcpycat(char* res, char *p1, char *p2);
-  
+void pathcpycat(char *res, char *p1, char *p2);
+
 void init(int argc, char **argv, cmd_opt *cmd_opts);
 
 #endif // INIT_H

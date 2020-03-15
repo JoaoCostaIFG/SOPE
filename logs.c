@@ -57,5 +57,5 @@ void set_logfile(char *new_logfile) {
 
 void clrlogs(void) {
   /* clear log file contents */
-  fclose(fopen(LOG_FILE, "w"));
+  fclose(fopen(log_file, "w+"));
 }

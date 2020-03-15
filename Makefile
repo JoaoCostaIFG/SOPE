@@ -2,7 +2,7 @@
 VERSION = 0
 NAME = simpledu
 
-SRC = init.c logs.c simpledu.c
+SRC = init.c logs.c sigs.c simpledu.c
 OBJ = ${SRC:.c=.o}
 
 # compiler and linker

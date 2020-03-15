@@ -45,7 +45,7 @@ void pathcpycat(char *res, char *p1, char *p2) {
 }
 
 void init(int argc, char **argv, cmd_opt *cmd_opts) {
-  /* clrlogs(); */
+  clrlogs();
   set_logfile(getenv(LOG_ENV_NAME));
 
   write_create_log(argc, argv);
@@ -53,7 +53,7 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
   // init cmd line options struct
   cmd_opts->all = 0;
   cmd_opts->bytes = 0;
-  cmd_opts->block_size = 1024;
+  cmd_opts->block_size = DFLT_BLK_SIZE;
   cmd_opts->count_links = 1;
   cmd_opts->dereference = 0;
   cmd_opts->separate_dirs = 0;

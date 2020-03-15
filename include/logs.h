@@ -31,7 +31,8 @@ enum exit_codes {
   PIPE_FAIL = 5,
   EXEC_FAIL = 6,
   MALLOC_FAIL = 7,
-  SIG_FAIL = 8
+  SIG_FAIL = 8,
+  FILE_OPEN_ERROR = 9
 };
 
 /** write a log message */
