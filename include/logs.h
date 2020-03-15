@@ -30,7 +30,8 @@ enum exit_codes {
   FORK_FAIL = 4,
   PIPE_FAIL = 5,
   EXEC_FAIL = 6,
-  MALLOC_FAIL = 7
+  MALLOC_FAIL = 7,
+  SIG_FAIL = 8
 };
 
 /** write a log message */
