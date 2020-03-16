@@ -11,7 +11,6 @@
 #include "include/sigs.h"
 
 #define STAT_DFLT_SIZE 512
-#define ARGS_MTR_SIZE 6
 
 #define READ 0
 #define WRITE 1
@@ -25,7 +24,7 @@ struct child_elem {
 typedef struct child_elem child_elem;
 static child_elem children[256];
 static int parent_pipe[2];
-static unsigned my_size;
+static unsigned long my_size;
 
 void pipe_send(cmd_opt *cmd_opts) {
   if (getpid() + 1 != get_pg_id()) {
@@ -33,7 +32,7 @@ void pipe_send(cmd_opt *cmd_opts) {
     FILE *fp;
     if ((fp = fdopen(parent_pipe[WRITE], "w")) == NULL)
       exit_perror_log(FILE_OPEN_ERROR, "Failure opening file");
-    if (fprintf(fp, "%u\n", my_size) < 0)
+    if (fprintf(fp, "%lu\n", my_size) < 0)
       exit_perror_log(PIPE_FAIL, "Writing to pipe failure");
     fclose(fp);
     write_sendpipe_log(my_size); // log pipe send
@@ -44,7 +43,7 @@ void pipe_send(cmd_opt *cmd_opts) {
   }
 
   write_entry_log(my_size, cmd_opts->path);
-  printf("%u\t%s\n", my_size, cmd_opts->path);
+  printf("%lu\t%s\n", my_size, cmd_opts->path);
   fflush(stdout);
 }
 
@@ -52,7 +51,7 @@ void rm_child(pid_t pid) {
   if (pid < 0)
     return;
 
-  unsigned size = 0;
+  unsigned long size = 0;
   for (size_t i = 0; i < child_num; ++i) {
     if (children[i].pid == pid) {
       children[i].pid = -1;
@@ -61,7 +60,7 @@ void rm_child(pid_t pid) {
       FILE *fp;
       if ((fp = fdopen(children[i].fd[READ], "r")) == NULL)
         exit_perror_log(FILE_OPEN_ERROR, "Failure opening file");
-      if (fscanf(fp, "%u", &size) == EOF)
+      if (fscanf(fp, "%lu", &size) == EOF)
         exit_perror_log(PIPE_FAIL, "Reading from pipe failure");
       fclose(fp);
       close(children[i].fd[READ]); // close fd
@@ -98,7 +97,7 @@ void read_files(cmd_opt *cmd_opts) {
   }
 
   struct stat stat_buf;
-  unsigned size = 0;
+  unsigned long size = 0;
   struct dirent *direntp;
   char path[MAX_PATH_SIZE];
   while ((direntp = readdir(dirp))) {
@@ -123,7 +122,7 @@ void read_files(cmd_opt *cmd_opts) {
       my_size += size;
 
       write_entry_log(size, path);
-      printf("%u\t%s\n", size, path);
+      printf("%lu\t%s\n", size, path);
       fflush(stdout);
     }
   }
@@ -131,46 +130,48 @@ void read_files(cmd_opt *cmd_opts) {
   closedir(dirp);
 }
 
-char **assemble_args(char *pname, cmd_opt *cmd_opts, char *file_path) {
-  /* args normais, B, depth, path, terminating NULL */
-  char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
-  if (!args)
-    exit_log(-1);
-
-  /* save program name (argv[0]) */
-  if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
-    exit_log(-1);
-  strcpy(args[0], pname);
-
-  /* args */
-  int i = 1; // curr arg postion
-  args[i] = malloc(sizeof(char) * 7);
-  sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
-          cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
-          cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : "");
-  if (!strcmp(args[1], "-"))
-    free(args[1]);
-
-  if (cmd_opts->block_size != 1024) {
-    if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
-      exit_log(-1);
-    sprintf(args[i++], "-B=%d", cmd_opts->block_size);
-  }
-
-  if (cmd_opts->max_depth != -1) { // decrease max-depth
-    if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
-      exit_log(-1);
-    sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
-  }
-
-  /* path */
-  if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
-    exit_log(-1);
-  strcpy(args[i++], file_path);
-
-  args[i] = (char *)0;
-  return args;
-}
+/*
+ * char **assemble_args(char *pname, cmd_opt *cmd_opts) {
+ *   [> args normais, B, depth, path, terminating NULL <]
+ *   char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
+ *   if (!args)
+ *     exit_log(-1);
+ *
+ *   [> save program name (argv[0]) <]
+ *   if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
+ *     exit_log(-1);
+ *   strcpy(args[0], pname);
+ *
+ *   [> args <]
+ *   int i = 1; // curr arg postion
+ *   args[i] = malloc(sizeof(char) * 7);
+ *   sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
+ *           cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
+ *           cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : "");
+ *   if (!strcmp(args[1], "-"))
+ *     free(args[1]);
+ *
+ *   if (cmd_opts->block_size != 1024) {
+ *     if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
+ *       exit_log(-1);
+ *     sprintf(args[i++], "-B=%d", cmd_opts->block_size);
+ *   }
+ *
+ *   if (cmd_opts->max_depth != -1) { // decrease max-depth
+ *     if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
+ *       exit_log(-1);
+ *     sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
+ *   }
+ *
+ *   [> path <]
+ *   if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
+ *     exit_log(-1);
+ *   strcpy(args[i++], file_path);
+ *
+ *   args[i] = (char *)0;
+ *   return args;
+ * }
+ */
 
 int read_dirs(cmd_opt *cmd_opts) {
   DIR *dirp;
