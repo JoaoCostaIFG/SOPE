@@ -97,6 +97,43 @@ void child_reaper(int reap_all) {
   }
 }
 
+char *assemble_args(char *argv0) {
+  /* args normais, B, depth, path, terminating NULL */
+  char *args = (char *)malloc(sizeof(char) * MAX_PATH_SIZE);
+  if (!args)
+    exit_log(MALLOC_FAIL);
+
+  strcpy(args, argv0);
+
+  char tmp[40];
+  sprintf(tmp, "-%s%s%s%s%s", cmd_opts.all ? "a" : "",
+          cmd_opts.bytes ? "b" : "", cmd_opts.count_links ? "l" : "",
+          cmd_opts.dereference ? "L" : "", cmd_opts.separate_dirs ? "S" : "");
+  if (strcmp(tmp, "-")) {
+    strcat(args, " ");
+    strcat(args, tmp);
+  }
+
+  if (cmd_opts.block_size != 1024) {
+    strcat(args, " ");
+    sprintf(tmp, "-B=%d", cmd_opts.block_size);
+    strcat(args, tmp);
+  }
+
+  if (cmd_opts.max_depth >= 0) {
+    strcat(args, " ");
+    sprintf(tmp, "--max-depth=%d", cmd_opts.max_depth);
+    strcat(args, tmp);
+  } else if (cmd_opts.max_depth == -2) {
+    strcat(args, " --max_depth=0");
+  }
+
+  /* path */
+  strcat(args, " ");
+  strcat(args, cmd_opts.path);
+  return args;
+}
+
 void read_files() {
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts.path))) {
@@ -127,10 +164,12 @@ void read_files() {
 
     if (cmd_opts.all &&
         (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode))) {
+      LOG_ENTRY(path);
       my_size += size;
 
       write_entry_log(size, path);
-      if (cmd_opts.max_depth != 0 && cmd_opts.max_depth != -2) { // depth = 0 => last level
+      if (cmd_opts.max_depth != 0 &&
+          cmd_opts.max_depth != -2) { // depth = 0 => last level
         printf("%lu\t%s\n", size, path);
         fflush(stdout);
       }
@@ -140,7 +179,7 @@ void read_files() {
   closedir(dirp);
 }
 
-int read_dirs() {
+int read_dirs(char *argv0) {
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts.path))) {
     perror(cmd_opts.path);
@@ -165,6 +204,7 @@ int read_dirs() {
 
     if (S_ISDIR(stat_buf.st_mode)) {
       LOG_ENTRY(path);
+      char *tmp;
 
       // pipe
       pipe(children[child_num].fd);
@@ -173,8 +213,11 @@ int read_dirs() {
       case -1: // failed fork
         exit_perror_log(FORK_FAIL, "");
         break;
-      case 0:             // child
-        LOG_CREATE(path); // TODO
+      case 0: // child
+        tmp = assemble_args(argv0);
+        LOG_CREATE(tmp); // TODO
+        free(tmp);
+
         set_child_sig();
 
         // save parent pipe
@@ -207,7 +250,7 @@ int read_dirs() {
   return 0;
 }
 
-void path_handler() {
+void path_handler(char *argv0) {
   /* test if file was given, and handle it */
   struct stat stat_buf;
   if ((cmd_opts.dereference ? stat(cmd_opts.path, &stat_buf)
@@ -223,7 +266,7 @@ void path_handler() {
   }
 
   do {
-    if (read_dirs()) // fork dirs
+    if (read_dirs(argv0)) // fork dirs
       continue;
     read_files(); // handle files
     break;
@@ -237,48 +280,6 @@ int main(int argc, char *argv[]) {
   init(argc, argv, &cmd_opts);
   set_grandparent_sig();
 
-  path_handler(); // fork subdirs and process files
+  path_handler(argv[0]); // fork subdirs and process files
   exit_log(EXIT_SUCCESS);
 }
-
-/*
- * char **assemble_args(char *pname, cmd_opt *cmd_opts) {
- *   [> args normais, B, depth, path, terminating NULL <]
- *   char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
- *   if (!args)
- *     exit_log(-1);
- *
- *   [> save program name (argv[0]) <]
- *   if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
- *     exit_log(-1);
- *   strcpy(args[0], pname);
- *
- *   [> args <]
- *   int i = 1; // curr arg postion
- *   args[i] = malloc(sizeof(char) * 7);
- *   sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
- *           cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
- *           cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" :
- * ""); if (!strcmp(args[1], "-")) free(args[1]);
- *
- *   if (cmd_opts->block_size != 1024) {
- *     if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
- *       exit_log(-1);
- *     sprintf(args[i++], "-B=%d", cmd_opts->block_size);
- *   }
- *
- *   if (cmd_opts->max_depth != -1) { // decrease max-depth
- *     if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
- *       exit_log(-1);
- *     sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
- *   }
- *
- *   [> path <]
- *   if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
- *     exit_log(-1);
- *   strcpy(args[i++], file_path);
- *
- *   args[i] = (char *)0;
- *   return args;
- * }
- */
