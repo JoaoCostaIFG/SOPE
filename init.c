@@ -78,7 +78,7 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
     case 0:
       if (!strcmp(long_options[option_index].name, "max-depth") && optarg) {
         if ((cmd_opts->max_depth = atoi(optarg)) < 0) // TODO test if num
-          exit_err_log(INIT, "--max-depth should be > 0");
+          exit_err_log(INIT, "--max-depth should be >= 0");
       } else
         print_usage();
       break;

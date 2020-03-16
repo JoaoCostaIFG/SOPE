@@ -11,6 +11,7 @@
 #include "include/sigs.h"
 
 #define STAT_DFLT_SIZE 512
+#define MAX_CHILDREN 256
 
 #define READ 0
 #define WRITE 1
@@ -22,11 +23,13 @@ struct child_elem {
   int fd[2];
 };
 typedef struct child_elem child_elem;
-static child_elem children[256];
+
+static child_elem children[MAX_CHILDREN];
 static int parent_pipe[2];
 static unsigned long my_size;
+static cmd_opt cmd_opts;
 
-void pipe_send(cmd_opt *cmd_opts) {
+void pipe_send() {
   if (getpid() + 1 != get_pg_id()) {
     // write pipe
     FILE *fp;
@@ -36,15 +39,20 @@ void pipe_send(cmd_opt *cmd_opts) {
       exit_perror_log(PIPE_FAIL, "Writing to pipe failure");
     fclose(fp);
     write_sendpipe_log(my_size); // log pipe send
+
+    if (cmd_opts.max_depth != 0) { // depth = 0 => last level
+      printf("%lu\t%s\n", my_size, cmd_opts.path);
+      fflush(stdout);
+    }
   } else {
-    my_size += cmd_opts->bytes
+    my_size += cmd_opts.bytes
                    ? DIR_NUM_BLK * DFLT_BLK_SIZE
-                   : DIR_NUM_BLK * DFLT_BLK_SIZE / cmd_opts->block_size;
+                   : DIR_NUM_BLK * DFLT_BLK_SIZE / cmd_opts.block_size;
+    printf("%lu\t%s\n", my_size, cmd_opts.path);
+    fflush(stdout);
   }
 
-  write_entry_log(my_size, cmd_opts->path);
-  printf("%lu\t%s\n", my_size, cmd_opts->path);
-  fflush(stdout);
+  write_entry_log(my_size, cmd_opts.path);
 }
 
 void rm_child(pid_t pid) {
@@ -66,8 +74,8 @@ void rm_child(pid_t pid) {
       close(children[i].fd[READ]); // close fd
       write_sendpipe_log(my_size); // log pipe receive
 
-      /* if (!cmd_opts->separate_dirs) // skip sub-dir size */ // TODO
-      my_size += size;
+      if (!cmd_opts.separate_dirs) // skip sub-dir size
+        my_size += size;
       return;
     }
   }
@@ -89,11 +97,11 @@ void child_reaper(int reap_all) {
   }
 }
 
-void read_files(cmd_opt *cmd_opts) {
+void read_files() {
   DIR *dirp;
-  if (!(dirp = opendir(cmd_opts->path))) {
-    perror(cmd_opts->path);
-    exit_perror_log(FAILED_OPENDIR, cmd_opts->path);
+  if (!(dirp = opendir(cmd_opts.path))) {
+    perror(cmd_opts.path);
+    exit_perror_log(FAILED_OPENDIR, cmd_opts.path);
   }
 
   struct stat stat_buf;
@@ -108,76 +116,35 @@ void read_files(cmd_opt *cmd_opts) {
     child_reaper(0); // reap children
 
     /* get formatted file path */
-    pathcpycat(path, cmd_opts->path, direntp->d_name);
-    if ((cmd_opts->dereference ? stat(path, &stat_buf)
-                               : lstat(path, &stat_buf)) == -1)
+    pathcpycat(path, cmd_opts.path, direntp->d_name);
+    if ((cmd_opts.dereference ? stat(path, &stat_buf)
+                              : lstat(path, &stat_buf)) == -1)
       exit_perror_log(NON_EXISTING_ENTRY, path);
 
-    size = cmd_opts->bytes
+    size = cmd_opts.bytes
                ? stat_buf.st_size
-               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size;
+               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size;
 
-    if (cmd_opts->all &&
+    if (cmd_opts.all &&
         (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode))) {
       my_size += size;
 
       write_entry_log(size, path);
-      printf("%lu\t%s\n", size, path);
-      fflush(stdout);
+      if (cmd_opts.max_depth != 0 && cmd_opts.max_depth != -2) { // depth = 0 => last level
+        printf("%lu\t%s\n", size, path);
+        fflush(stdout);
+      }
     }
   }
 
   closedir(dirp);
 }
 
-/*
- * char **assemble_args(char *pname, cmd_opt *cmd_opts) {
- *   [> args normais, B, depth, path, terminating NULL <]
- *   char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
- *   if (!args)
- *     exit_log(-1);
- *
- *   [> save program name (argv[0]) <]
- *   if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
- *     exit_log(-1);
- *   strcpy(args[0], pname);
- *
- *   [> args <]
- *   int i = 1; // curr arg postion
- *   args[i] = malloc(sizeof(char) * 7);
- *   sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
- *           cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
- *           cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : "");
- *   if (!strcmp(args[1], "-"))
- *     free(args[1]);
- *
- *   if (cmd_opts->block_size != 1024) {
- *     if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
- *       exit_log(-1);
- *     sprintf(args[i++], "-B=%d", cmd_opts->block_size);
- *   }
- *
- *   if (cmd_opts->max_depth != -1) { // decrease max-depth
- *     if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
- *       exit_log(-1);
- *     sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
- *   }
- *
- *   [> path <]
- *   if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
- *     exit_log(-1);
- *   strcpy(args[i++], file_path);
- *
- *   args[i] = (char *)0;
- *   return args;
- * }
- */
-
-int read_dirs(cmd_opt *cmd_opts) {
+int read_dirs() {
   DIR *dirp;
-  if (!(dirp = opendir(cmd_opts->path))) {
-    perror(cmd_opts->path);
-    exit_perror_log(FAILED_OPENDIR, cmd_opts->path);
+  if (!(dirp = opendir(cmd_opts.path))) {
+    perror(cmd_opts.path);
+    exit_perror_log(FAILED_OPENDIR, cmd_opts.path);
   }
 
   struct stat stat_buf;
@@ -191,9 +158,9 @@ int read_dirs(cmd_opt *cmd_opts) {
     child_reaper(0); // reap children
 
     /* get formatted file path */
-    pathcpycat(path, cmd_opts->path, direntp->d_name);
-    if ((cmd_opts->dereference ? stat(path, &stat_buf)
-                               : lstat(path, &stat_buf)) == -1)
+    pathcpycat(path, cmd_opts.path, direntp->d_name);
+    if ((cmd_opts.dereference ? stat(path, &stat_buf)
+                              : lstat(path, &stat_buf)) == -1)
       exit_perror_log(NON_EXISTING_ENTRY, path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
@@ -216,12 +183,16 @@ int read_dirs(cmd_opt *cmd_opts) {
         close(parent_pipe[READ]); // close reading end
         child_num = 0;            // reset child count
 
-        my_size = cmd_opts->bytes ? stat_buf.st_size
-                                  : stat_buf.st_blocks * STAT_DFLT_SIZE /
-                                        cmd_opts->block_size;
-        if (cmd_opts->max_depth > 0)
-          --cmd_opts->max_depth;
-        strcpy(cmd_opts->path, path);
+        my_size = cmd_opts.bytes ? stat_buf.st_size
+                                 : stat_buf.st_blocks * STAT_DFLT_SIZE /
+                                       cmd_opts.block_size;
+        if (cmd_opts.max_depth == 1)
+          cmd_opts.max_depth = -2; // print only the dir
+        else if (cmd_opts.max_depth == -2)
+          cmd_opts.max_depth = 0; // don't print anything else
+        else if (cmd_opts.max_depth > 0)
+          --cmd_opts.max_depth; // lower one lvl if not -1 (infinite)
+        strcpy(cmd_opts.path, path);
         return 1; // repeat
         break;
       default:                                // parent
@@ -236,41 +207,78 @@ int read_dirs(cmd_opt *cmd_opts) {
   return 0;
 }
 
-void path_handler(cmd_opt *cmd_opts) {
+void path_handler() {
   /* test if file was given, and handle it */
   struct stat stat_buf;
-  if ((cmd_opts->dereference ? stat(cmd_opts->path, &stat_buf)
-                             : lstat(cmd_opts->path, &stat_buf)) == -1)
-    exit_perror_log(NON_EXISTING_ENTRY, cmd_opts->path);
+  if ((cmd_opts.dereference ? stat(cmd_opts.path, &stat_buf)
+                            : lstat(cmd_opts.path, &stat_buf)) == -1)
+    exit_perror_log(NON_EXISTING_ENTRY, cmd_opts.path);
   if (!S_ISDIR(stat_buf.st_mode)) {
     printf("%lu\t%s\n",
-           cmd_opts->bytes
+           cmd_opts.bytes
                ? stat_buf.st_size
-               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts->block_size,
-           cmd_opts->path);
+               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size,
+           cmd_opts.path);
     exit_log(EXIT_SUCCESS);
   }
 
   do {
-    if (read_dirs(cmd_opts)) // fork dirs
+    if (read_dirs()) // fork dirs
       continue;
-    read_files(cmd_opts); // handle files
+    read_files(); // handle files
     break;
   } while (1);
 
   child_reaper(1);
-  pipe_send(cmd_opts);
+  pipe_send();
 }
 
 int main(int argc, char *argv[]) {
-  cmd_opt cmd_opts;
   init(argc, argv, &cmd_opts);
   set_grandparent_sig();
 
-  // depth = 0 => dizer apenas tamanho atual da dir
-  if (cmd_opts.max_depth == 0) // max depth reached, quit
-    exit_log(0);
-
-  path_handler(&cmd_opts); // fork subdirs and process files
+  path_handler(); // fork subdirs and process files
   exit_log(EXIT_SUCCESS);
 }
+
+/*
+ * char **assemble_args(char *pname, cmd_opt *cmd_opts) {
+ *   [> args normais, B, depth, path, terminating NULL <]
+ *   char **args = (char **)malloc(sizeof(char *) * ARGS_MTR_SIZE);
+ *   if (!args)
+ *     exit_log(-1);
+ *
+ *   [> save program name (argv[0]) <]
+ *   if (!(args[0] = (char *)malloc(sizeof(char) * (strlen(pname) + 1))))
+ *     exit_log(-1);
+ *   strcpy(args[0], pname);
+ *
+ *   [> args <]
+ *   int i = 1; // curr arg postion
+ *   args[i] = malloc(sizeof(char) * 7);
+ *   sprintf(args[i++], "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
+ *           cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
+ *           cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" :
+ * ""); if (!strcmp(args[1], "-")) free(args[1]);
+ *
+ *   if (cmd_opts->block_size != 1024) {
+ *     if (!(args[i] = (char *)malloc(sizeof(char) * 16)))
+ *       exit_log(-1);
+ *     sprintf(args[i++], "-B=%d", cmd_opts->block_size);
+ *   }
+ *
+ *   if (cmd_opts->max_depth != -1) { // decrease max-depth
+ *     if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
+ *       exit_log(-1);
+ *     sprintf(args[i++], "--max-depth=%d", cmd_opts->max_depth - 1);
+ *   }
+ *
+ *   [> path <]
+ *   if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
+ *     exit_log(-1);
+ *   strcpy(args[i++], file_path);
+ *
+ *   args[i] = (char *)0;
+ *   return args;
+ * }
+ */

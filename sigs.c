@@ -22,18 +22,21 @@ void sigint_handler(int signum) {
   int ans;
   do {
     // loop until either 'n', 'N', 'y' or 'Y' is read from stdin
-    printf("Do you really wish to stop execution? [y/n] ");
+    fputs("Do you really wish to stop execution? [y/n] ", stderr);
+    fflush(stderr);
   } while ((ans = getchar()) != EOF &&
            (tolower(ans) != 'y' && tolower(ans) != 'n'));
   getchar();
 
   // process decision
   if (tolower(ans) == 'n') { // unpause children
-    puts("Continue..");
+    fputs("Continue..", stderr);
+    fflush(stderr);
     kill(-pg_id, SIGCONT);
     write_sendsig_log(SIGCONT, -pg_id);
   } else { // kill children
-    puts("Exiting..");
+    fputs("Exiting..", stderr);
+    fflush(stderr);
     kill(-pg_id, SIGTERM);
     write_sendsig_log(SIGTERM, -pg_id);
     exit_log(EXIT_SUCCESS);
