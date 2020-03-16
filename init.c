@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +45,13 @@ void pathcpycat(char *res, char *p1, char *p2) {
   pathcat(res, p2);
 }
 
+int is_str_num(char *str) {
+  for (size_t i = 0; i < strlen(str); ++i)
+    if (!isdigit(str[i]))
+      return 0;
+  return 1;
+}
+
 void init(int argc, char **argv, cmd_opt *cmd_opts) {
   clrlogs();
   set_logfile(getenv(LOG_ENV_NAME));
@@ -77,8 +85,10 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
     switch (c) {
     case 0:
       if (!strcmp(long_options[option_index].name, "max-depth") && optarg) {
-        if ((cmd_opts->max_depth = atoi(optarg)) < 0) // TODO test if num
-          exit_err_log(INIT, "--max-depth should be >= 0");
+        if (!is_str_num(optarg))
+          print_usage();
+        else if ((cmd_opts->max_depth = atoi(optarg)) < 0)
+          exit_err_log(INIT, "Invalid maximum depth. It should be >= 0");
       } else
         print_usage();
       break;
@@ -91,16 +101,14 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
     case 'B':
       if (!optarg)
         print_usage();
-
-      if (optarg[0] == '=')
+      if (optarg[0] == '=' && is_str_num(optarg + 1))
         cmd_opts->block_size = atoi(optarg + 1);
-      else
+      else if (is_str_num(optarg))
         cmd_opts->block_size = atoi(optarg);
-
-      // error checking
-      // TODO test if num
-      if (cmd_opts->block_size == 0) // atoi fails or 0
+      else
         print_usage();
+      if (cmd_opts->block_size == 0)
+        exit_err_log(INIT, "Invalid block size argument. It must be > 0");
       break;
     case 'l':
       cmd_opts->count_links = 1;

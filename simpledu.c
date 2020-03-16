@@ -156,7 +156,7 @@ void read_files() {
     pathcpycat(path, cmd_opts.path, direntp->d_name);
     if ((cmd_opts.dereference ? stat(path, &stat_buf)
                               : lstat(path, &stat_buf)) == -1)
-      exit_perror_log(NON_EXISTING_ENTRY, path);
+      perror(path);
 
     size = cmd_opts.bytes
                ? stat_buf.st_size
@@ -200,7 +200,7 @@ int read_dirs(char *argv0) {
     pathcpycat(path, cmd_opts.path, direntp->d_name);
     if ((cmd_opts.dereference ? stat(path, &stat_buf)
                               : lstat(path, &stat_buf)) == -1)
-      exit_perror_log(NON_EXISTING_ENTRY, path);
+      perror(path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
       LOG_ENTRY(path);
@@ -215,7 +215,7 @@ int read_dirs(char *argv0) {
         break;
       case 0: // child
         tmp = assemble_args(argv0);
-        LOG_CREATE(tmp); // TODO
+        LOG_CREATE(tmp);
         free(tmp);
 
         set_child_sig();
