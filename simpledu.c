@@ -30,7 +30,7 @@ static unsigned long my_size;
 static cmd_opt cmd_opts;
 
 void pipe_send() {
-  if (getpid() + 1 != get_pg_id()) {
+  if (is_child()) {
     // write pipe
     FILE *fp;
     if ((fp = fdopen(parent_pipe[WRITE], "w")) == NULL)
@@ -163,13 +163,22 @@ void read_files() {
                  ? stat_buf.st_size
                  : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size;
       my_size += size;
-      write_entry_log(size, path);
 
       if (cmd_opts.all && cmd_opts.max_depth != 0 &&
           cmd_opts.max_depth != -2) { // depth = 0 => last level
+        if (!cmd_opts.bytes) {
+          if (stat_buf.st_blocks == 0)
+            size = 0;
+          else {
+            size = stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size;
+            if (size == 0)
+              size = 1;
+          }
+        }
         printf("%lu\t%s\n", size, path);
         fflush(stdout);
       }
+      write_entry_log(size, path);
     }
   }
 
@@ -200,6 +209,7 @@ int read_dirs(char *argv0) {
       perror(path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
+
       char *tmp;
       // pipe
       pipe(children[child_num].fd);
@@ -209,28 +219,31 @@ int read_dirs(char *argv0) {
         exit_perror_log(FORK_FAIL, "");
         break;
       case 0: // child
+        // cmd line args
+        strcpy(cmd_opts.path, path);
         tmp = assemble_args(argv0);
         LOG_CREATE(tmp);
         free(tmp);
 
-        set_child_sig();
+        set_signals();
 
         // save parent pipe
         parent_pipe[READ] = children[child_num].fd[READ];
         parent_pipe[WRITE] = children[child_num].fd[WRITE];
         close(parent_pipe[READ]); // close reading end
-        child_num = 0;            // reset child count
 
+        child_num = 0; // reset child count
         my_size = cmd_opts.bytes ? stat_buf.st_size
                                  : stat_buf.st_blocks * STAT_DFLT_SIZE /
                                        cmd_opts.block_size;
+
         if (cmd_opts.max_depth == 1)
           cmd_opts.max_depth = -2; // print only the dir
         else if (cmd_opts.max_depth == -2)
           cmd_opts.max_depth = 0; // don't print anything else
         else if (cmd_opts.max_depth > 0)
           --cmd_opts.max_depth; // lower one lvl if not -1 (infinite)
-        strcpy(cmd_opts.path, path);
+
         return 1; // repeat
         break;
       default:                                // parent
@@ -273,7 +286,7 @@ void path_handler(char *argv0) {
 
 int main(int argc, char *argv[]) {
   init(argc, argv, &cmd_opts);
-  set_grandparent_sig();
+  set_signals();
 
   path_handler(argv[0]); // fork subdirs and process files
   exit_log(EXIT_SUCCESS);

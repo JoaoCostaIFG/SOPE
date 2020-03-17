@@ -15,6 +15,7 @@
 
 /** log file environment name */
 #define LOG_ENV_NAME "LOG_FILENAME"
+#define LOG_ENV_TIME "SIMPLEDU_START_TIME"
 
 /** logs types */
 #define CREATE_LOG "CREATE"

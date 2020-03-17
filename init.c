@@ -98,7 +98,7 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
     case 'b':
       cmd_opts->bytes = 1;
       break;
-    case 'B':
+    case 'B': // TODO CHECK overflow
       if (!optarg)
         print_usage();
       if (optarg[0] == '=' && is_str_num(optarg + 1))

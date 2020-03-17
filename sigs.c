@@ -7,7 +7,34 @@
 #include "include/logs.h"
 #include "include/sigs.h"
 
-static pid_t pg_id; /**< process group of children */
+#define GRPID_ENV "SIMPLEDU_GRPID"
+
+static pid_t pg_id = 0; /**< process group of children (0 is invalid) */
+
+pid_t getGrpId(void) {
+  char *tmp;
+  if ((tmp = getenv(GRPID_ENV)) == NULL) {
+    pg_id = 0;
+    return 0;
+  }
+
+  pg_id = (pid_t)atol(tmp);
+  return pg_id;
+}
+
+void set_pg_id(pid_t pid) {
+  pg_id = pid;
+  char env_var[20];
+  sprintf(env_var, "%d", pg_id);
+
+  setenv(GRPID_ENV, env_var, 1);
+}
+
+void set_grandparent(void) { set_pg_id(getpid() + 1); }
+
+int is_child(void) { return (getpid() + 1 != pg_id); }
+
+int is_grandparent(void) { return (getpid() + 1 == pg_id || pg_id == 0); }
 
 void sigint_handler(int signum) {
   if (signum != SIGINT)
@@ -30,12 +57,12 @@ void sigint_handler(int signum) {
 
   // process decision
   if (tolower(ans) == 'n') { // unpause children
-    fputs("Continue..", stderr);
+    fputs("Continue..\n", stderr);
     fflush(stderr);
     kill(-pg_id, SIGCONT);
     write_sendsig_log(SIGCONT, -pg_id);
   } else { // kill children
-    fputs("Exiting..", stderr);
+    fputs("Exiting..\n", stderr);
     fflush(stderr);
     kill(-pg_id, SIGTERM);
     write_sendsig_log(SIGTERM, -pg_id);
@@ -44,10 +71,6 @@ void sigint_handler(int signum) {
 }
 
 void set_child_sig(void) {
-  if (getpgrp() == get_pg_id()) // permission already set
-    return;
-
-  setpgid(0, pg_id); // set process group id
   /* ignore SIGINT */
   struct sigaction sa;
   sa.sa_handler = SIG_IGN;
@@ -58,7 +81,6 @@ void set_child_sig(void) {
 }
 
 void set_grandparent_sig(void) {
-  set_pg_id(getpid() + 1); // save process group id for children
   /* handle SIGINT */
   struct sigaction sa;
   sa.sa_handler = &sigint_handler;
@@ -68,6 +90,13 @@ void set_grandparent_sig(void) {
     exit_perror_log(SIG_FAIL, "setting SIGINT handler failed.");
 }
 
-void set_pg_id(pid_t pid) { pg_id = pid; }
-
-pid_t get_pg_id(void) { return pg_id; }
+void set_signals(void) {
+  getGrpId();
+  if (is_grandparent()) {
+    set_grandparent(); // save process group id for children
+    set_grandparent_sig();
+  } else {
+    setpgid(0, pg_id); // set process group id
+    set_child_sig();
+  }
+}

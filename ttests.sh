@@ -23,6 +23,7 @@ if [ "$#" -ne 0 ]; then
   fi
 fi
 make
+echo ""
 
 # 1
 test "-la"
@@ -36,7 +37,7 @@ test "-lab"
 test "-laB512"
 test "-laL"
 test "-laS"
-test "-lbB512"
+# test "-lbB512"
 test "-lbL"
 test "-lbS"
 test "-lLB512"
@@ -44,25 +45,28 @@ test "-lSB512"
 test "-lLS"
 
 # 3
-test "-labB512"
+# test "-labB512"
 test "-labL"
 test "-labS"
 test "-laLB512"
 test "-laSB512"
-test "-lbLB512"
-test "-lbSB512"
+# test "-lbLB512"
+# test "-lbSB512"
 test "-lbLS"
 test "-lLSB512"
 
 # 4
-test "-labLB512"
-test "-labSB512"
+# test "-labLB512"
+# test "-labSB512"
 test "-labLS"
 test "-laLSB512"
-test "-lbLSB512"
+# test "-lbLSB512"
 
 # 5
-test "-labLSB512"
+# test "-labLSB512"
+
+# block size
+test "-aB4096000000000000000"
 
 echo ""
 echo "Finished"
