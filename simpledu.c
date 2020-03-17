@@ -11,7 +11,7 @@
 #include "include/sigs.h"
 
 #define STAT_DFLT_SIZE 512
-#define MAX_CHILDREN 256
+#define MAX_CHILDREN 500
 
 #define READ 0
 #define WRITE 1
@@ -142,7 +142,7 @@ void read_files() {
   }
 
   struct stat stat_buf;
-  unsigned long size = 0;
+  unsigned long size;
   struct dirent *direntp;
   char path[MAX_PATH_SIZE];
   while ((direntp = readdir(dirp))) {
@@ -158,17 +158,14 @@ void read_files() {
                               : lstat(path, &stat_buf)) == -1)
       perror(path);
 
-    size = cmd_opts.bytes
-               ? stat_buf.st_size
-               : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size;
-
-    if (cmd_opts.all &&
-        (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode))) {
-      LOG_ENTRY(path);
+    if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) {
+      size = cmd_opts.bytes
+                 ? stat_buf.st_size
+                 : stat_buf.st_blocks * STAT_DFLT_SIZE / cmd_opts.block_size;
       my_size += size;
-
       write_entry_log(size, path);
-      if (cmd_opts.max_depth != 0 &&
+
+      if (cmd_opts.all && cmd_opts.max_depth != 0 &&
           cmd_opts.max_depth != -2) { // depth = 0 => last level
         printf("%lu\t%s\n", size, path);
         fflush(stdout);
@@ -203,9 +200,7 @@ int read_dirs(char *argv0) {
       perror(path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
-      LOG_ENTRY(path);
       char *tmp;
-
       // pipe
       pipe(children[child_num].fd);
       children[child_num].pid = fork();
