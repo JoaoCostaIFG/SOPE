@@ -1,13 +1,25 @@
 #!/bin/sh
 
 TARGET="test"
+TARGET2="test2"
+TARGET3="test3"
 F1="simpledu_res"
 F2="du_res"
 
 test() {
   ./simpledu "$@" "$TARGET" | sort -k2 >"$F1"
   du "$@" "$TARGET" | sort -k2 >"$F2"
-  diff -q "$F1" "$F2" || echo "fail ops " "$@"
+  diff -q "$F1" "$F2" || echo "fail ops " "$@" "on target " "$TARGET"
+  rm "$F1" "$F2"
+
+  ./simpledu "$@" "$TARGET2" | sort -k2 >"$F1"
+  du "$@" "$TARGET2" | sort -k2 >"$F2"
+  diff -q "$F1" "$F2" || echo "fail ops " "$@" "on target " "$TARGET2"
+  rm "$F1" "$F2"
+
+  ./simpledu "$@" "$TARGET3" | sort -k2 >"$F1"
+  du "$@" "$TARGET3" | sort -k2 >"$F2"
+  diff -q "$F1" "$F2" || echo "fail ops " "$@" "on target " "$TARGET3"
   rm "$F1" "$F2"
 }
 
