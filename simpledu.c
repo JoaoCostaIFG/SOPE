@@ -97,43 +97,6 @@ void child_reaper(int reap_all) {
   }
 }
 
-char *assemble_args(char *argv0) {
-  /* args normais, B, depth, path, terminating NULL */
-  char *args = (char *)malloc(sizeof(char) * MAX_PATH_SIZE);
-  if (!args)
-    exit_log(MALLOC_FAIL);
-
-  strcpy(args, argv0);
-
-  char tmp[40];
-  sprintf(tmp, "-%s%s%s%s%s", cmd_opts.all ? "a" : "",
-          cmd_opts.bytes ? "b" : "", cmd_opts.count_links ? "l" : "",
-          cmd_opts.dereference ? "L" : "", cmd_opts.separate_dirs ? "S" : "");
-  if (strcmp(tmp, "-")) {
-    strcat(args, " ");
-    strcat(args, tmp);
-  }
-
-  if (cmd_opts.block_size != 1024) {
-    strcat(args, " ");
-    sprintf(tmp, "-B=%ld", cmd_opts.block_size);
-    strcat(args, tmp);
-  }
-
-  if (cmd_opts.max_depth >= 0) {
-    strcat(args, " ");
-    sprintf(tmp, "--max-depth=%ld", cmd_opts.max_depth);
-    strcat(args, tmp);
-  } else if (cmd_opts.max_depth == -2) {
-    strcat(args, " --max_depth=0");
-  }
-
-  /* path */
-  strcat(args, " ");
-  strcat(args, cmd_opts.path);
-  return args;
-}
-
 void read_files() {
   DIR *dirp;
   if (!(dirp = opendir(cmd_opts.path))) {
@@ -209,8 +172,6 @@ int read_dirs(char *argv0) {
       perror(path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
-
-      char *tmp;
       // pipe
       pipe(children[child_num].fd);
       children[child_num].pid = fork();
@@ -219,13 +180,7 @@ int read_dirs(char *argv0) {
         exit_perror_log(FORK_FAIL, "");
         break;
       case 0: // child
-        // cmd line args
-        strcpy(cmd_opts.path, path);
-        tmp = assemble_args(argv0);
-        LOG_CREATE(tmp);
-        free(tmp);
-
-        set_signals();
+        init_child(argv0, path, &cmd_opts);
 
         // save parent pipe
         parent_pipe[READ] = children[child_num].fd[READ];
@@ -236,13 +191,6 @@ int read_dirs(char *argv0) {
         my_size = cmd_opts.bytes ? stat_buf.st_size
                                  : stat_buf.st_blocks * STAT_DFLT_SIZE /
                                        cmd_opts.block_size;
-
-        if (cmd_opts.max_depth == 1)
-          cmd_opts.max_depth = -2; // print only the dir
-        else if (cmd_opts.max_depth == -2)
-          cmd_opts.max_depth = 0; // don't print anything else
-        else if (cmd_opts.max_depth > 0)
-          --cmd_opts.max_depth; // lower one lvl if not -1 (infinite)
 
         return 1; // repeat
         break;

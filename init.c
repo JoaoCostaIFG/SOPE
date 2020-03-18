@@ -7,6 +7,7 @@
 
 #include "include/init.h"
 #include "include/logs.h"
+#include "include/sigs.h"
 
 void print_usage() {
   fprintf(stderr,
@@ -157,4 +158,59 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
   } else {
     print_usage();
   }
+}
+
+char *assemble_args(char *argv0, cmd_opt *cmd_opts) {
+  /* args normais, B, depth, path, terminating NULL */
+  char *args = (char *)malloc(sizeof(char) * MAX_PATH_SIZE);
+  if (!args)
+    exit_log(MALLOC_FAIL);
+
+  strcpy(args, argv0);
+
+  char tmp[40];
+  sprintf(tmp, "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
+          cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
+          cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : "");
+  if (strcmp(tmp, "-")) {
+    strcat(args, " ");
+    strcat(args, tmp);
+  }
+
+  if (cmd_opts->block_size != 1024) {
+    strcat(args, " ");
+    sprintf(tmp, "-B=%ld", cmd_opts->block_size);
+    strcat(args, tmp);
+  }
+
+  if (cmd_opts->max_depth >= 0) {
+    strcat(args, " ");
+    sprintf(tmp, "--max-depth=%ld", cmd_opts->max_depth);
+    strcat(args, tmp);
+  } else if (cmd_opts->max_depth == -2) {
+    strcat(args, " --max_depth=0");
+  }
+
+  /* path */
+  strcat(args, " ");
+  strcat(args, cmd_opts->path);
+  return args;
+}
+
+void init_child(char* argv0, char* new_path, cmd_opt *cmd_opts) {
+  // cmd line args
+  strcpy(cmd_opts->path, new_path);
+  char *tmp;
+  tmp = assemble_args(argv0, cmd_opts);
+  LOG_CREATE(tmp);
+  free(tmp);
+
+  set_signals();
+
+  if (cmd_opts->max_depth == 1)
+    cmd_opts->max_depth = -2; // print only the dir
+  else if (cmd_opts->max_depth == -2)
+    cmd_opts->max_depth = 0; // don't print anything else
+  else if (cmd_opts->max_depth > 0)
+    --cmd_opts->max_depth; // lower one lvl if not -1 (infinite)
 }

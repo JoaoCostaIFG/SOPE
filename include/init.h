@@ -30,4 +30,8 @@ void pathcpycat(char *res, char *p1, char *p2);
 
 void init(int argc, char **argv, cmd_opt *cmd_opts);
 
+char *assemble_args(char *argv0, cmd_opt *cmd_opts);
+
+void init_child(char* argv0, char* new_path, cmd_opt *cmd_opts);
+
 #endif // INIT_H
