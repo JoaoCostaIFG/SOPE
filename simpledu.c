@@ -157,6 +157,8 @@ int read_dirs(DIR *dirp, char *argv0) {
       children[prog_props.child_num].pid = fork();
       switch (children[prog_props.child_num].pid) {
       case -1: // failed fork
+        // TODO what to do ?
+        pipe_send();
         exit_perror_log(FORK_FAIL, "");
         break;
       case 0: // child

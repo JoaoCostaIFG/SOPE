@@ -9,6 +9,14 @@
 
 #define GRPID_ENV "SIMPLEDU_GRPID"
 
+#define SIGINT_ANS_LEN 200
+#define SIGINT_HAND_MSG "Do you really wish to stop execution? [y/n] "
+#define SIGINT_HAND_MSG_LEN 45
+#define SIGINT_HAND_CONT "Continue..\n"
+#define SIGINT_HAND_CONT_LEN 11
+#define SIGINT_HAND_EXIT "Exitting..\n"
+#define SIGINT_HAND_EXIT_LEN 11
+
 static pid_t pg_id = 0; /**< process group of children (0 is invalid) */
 
 pid_t getGrpId(void) {
@@ -36,6 +44,7 @@ int is_child(void) { return (getpid() + 1 != pg_id); }
 
 int is_grandparent(void) { return (getpid() + 1 == pg_id || pg_id == 0); }
 
+/* garantee reiterant funcs only */
 void sigint_handler(int signum) {
   if (signum != SIGINT)
     return;
@@ -47,22 +56,28 @@ void sigint_handler(int signum) {
   write_sendsig_log(SIGSTOP, -pg_id);
 
   // get user choice
-  puts("");
-  int ans;
+  write(STDERR_FILENO, "\n", 1);
+  char ans[SIGINT_ANS_LEN + 1];
+  int read_ret;
   do {
     // loop until either 'n', 'N', 'y' or 'Y' is read from stdin
-    fputs("Do you really wish to stop execution? [y/n] ", stderr);
-  } while ((ans = getchar()) != EOF &&
-           (tolower(ans) != 'y' && tolower(ans) != 'n'));
-  getchar();
+    write(STDERR_FILENO, SIGINT_HAND_MSG, SIGINT_HAND_MSG_LEN);
+    read_ret = read(STDIN_FILENO, ans, SIGINT_ANS_LEN);
+    if (read_ret == -1) { // if read fails, assume yes
+      ans[0] = 'y';
+      read_ret = 0;
+    } else if (read_ret <= 2 && ans[1] == '\n') {
+      read_ret = 0;
+    }
+  } while (read_ret != 0);
 
   // process decision
-  if (tolower(ans) == 'n') { // unpause children
-    fputs("Continue..\n", stderr);
+  if (ans[0] == 'n' || ans[0] == 'N') { // unpause children
+    write(STDERR_FILENO, SIGINT_HAND_CONT, SIGINT_HAND_CONT_LEN);
     kill(-pg_id, SIGCONT);
     write_sendsig_log(SIGCONT, -pg_id);
   } else { // kill children
-    fputs("Exiting..\n", stderr);
+    write(STDERR_FILENO, SIGINT_HAND_EXIT, SIGINT_HAND_EXIT_LEN);
     kill(-pg_id, SIGTERM);
     write_sendsig_log(SIGTERM, -pg_id);
     exit_log(EXIT_SUCCESS);

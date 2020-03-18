@@ -34,7 +34,7 @@ if [ "$#" -ne 0 ]; then
     exit 0
   fi
 fi
-make
+make || echo "Can't make."
 echo ""
 
 # 1
