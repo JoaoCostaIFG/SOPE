@@ -41,46 +41,50 @@ echo ""
 test "-la"
 test "-lb"
 test "-lB512"
-test "-lL"
 test "-lS"
 
 # 2
 test "-lab"
 test "-laB512"
-test "-laL"
 test "-laS"
-# test "-lbB512"
-test "-lbL"
+test "-lbB512"
 test "-lbS"
-test "-lLB512"
 test "-lSB512"
-test "-lLS"
 
 # 3
-# test "-labB512"
-test "-labL"
+test "-labB512"
 test "-labS"
-test "-laLB512"
 test "-laSB512"
-# test "-lbLB512"
-# test "-lbSB512"
-test "-lbLS"
-test "-lLSB512"
+test "-lbLB512"
+test "-lbSB512"
 
 # 4
-# test "-labLB512"
-# test "-labSB512"
-test "-labLS"
-test "-laLSB512"
-# test "-lbLSB512"
+test "-labLB512"
+test "-labSB512"
+test "-lbLSB512"
 
 # 5
-# test "-labLSB512"
+test "-labLSB512"
+
+# big L
+if [ "$2" = "-L" ]; then
+  test "-lbLS"
+  test "-lLSB512"
+  test "-laLB512"
+  test "-labL"
+  test "-lLS"
+  test "-lLB512"
+  test "-lbL"
+  test "-laL"
+  test "-lL"
+  test "-labLS"
+  test "-laLSB512"
+fi
 
 # block size
 test "-aB4096000000000000000"
 
+make clean
 echo ""
 echo "Finished"
 echo ""
-

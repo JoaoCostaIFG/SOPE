@@ -117,6 +117,7 @@ void init(int argc, char **argv, prog_prop *prog_props) {
       break;
     case 'b':
       prog_props->bytes = 1;
+      prog_props->block_size = 1;
       break;
     case 'B':
       if (!optarg)

@@ -39,18 +39,19 @@ int is_grandparent(void) { return (getpid() + 1 == pg_id || pg_id == 0); }
 void sigint_handler(int signum) {
   if (signum != SIGINT)
     return;
-  write_recvsig_log(SIGINT);
-
   // pause children
   kill(-pg_id, SIGSTOP);
+
+  // logs
+  write_recvsig_log(SIGINT);
   write_sendsig_log(SIGSTOP, -pg_id);
+
   // get user choice
   puts("");
   int ans;
   do {
     // loop until either 'n', 'N', 'y' or 'Y' is read from stdin
     fputs("Do you really wish to stop execution? [y/n] ", stderr);
-    fflush(stderr);
   } while ((ans = getchar()) != EOF &&
            (tolower(ans) != 'y' && tolower(ans) != 'n'));
   getchar();
@@ -58,12 +59,10 @@ void sigint_handler(int signum) {
   // process decision
   if (tolower(ans) == 'n') { // unpause children
     fputs("Continue..\n", stderr);
-    fflush(stderr);
     kill(-pg_id, SIGCONT);
     write_sendsig_log(SIGCONT, -pg_id);
   } else { // kill children
     fputs("Exiting..\n", stderr);
-    fflush(stderr);
     kill(-pg_id, SIGTERM);
     write_sendsig_log(SIGTERM, -pg_id);
     exit_log(EXIT_SUCCESS);

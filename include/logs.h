@@ -41,8 +41,9 @@ enum exit_codes {
   EXEC_FAIL = 6,
   MALLOC_FAIL = 7,
   SIG_FAIL = 8,
-  FILE_OPEN_ERROR = 9,
-  TIME_ERROR = 10
+  STAT_FAIL = 9,
+  FILE_OPEN_ERROR = 10,
+  TIME_ERROR = 11
 };
 
 /** write a log message */

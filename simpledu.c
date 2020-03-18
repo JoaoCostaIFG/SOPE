@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <tgmath.h>
 #include <unistd.h>
 
 #include "include/init.h"
@@ -26,6 +27,13 @@ static child_elem children[MAX_CHILDREN];
 static unsigned long my_size;
 static prog_prop prog_props;
 
+unsigned long lu_ceil(double d) { return (unsigned long)ceil(d); }
+
+unsigned long calc_size(struct stat *stat_buf) {
+  return prog_props.bytes ? stat_buf->st_size
+                          : stat_buf->st_blocks * STAT_DFLT_SIZE;
+}
+
 void pipe_send() {
   if (is_child()) {
     // write pipe
@@ -38,17 +46,15 @@ void pipe_send() {
     write_sendpipe_log(my_size); // log pipe send
 
     if (prog_props.max_depth != 0) { // depth = 0 => last level
-      printf("%lu\t%s\n", my_size, prog_props.path);
-      fflush(stdout);
+      printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
+             prog_props.path);
     }
   } else {
-    my_size += prog_props.bytes
-                   ? DIR_NUM_BLK * DFLT_BLK_SIZE
-                   : DIR_NUM_BLK * DFLT_BLK_SIZE / prog_props.block_size;
-    printf("%lu\t%s\n", my_size, prog_props.path);
-    fflush(stdout);
+    printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
+           prog_props.path);
   }
 
+  fflush(stdout);
   write_entry_log(my_size, prog_props.path);
 }
 
@@ -94,7 +100,7 @@ void child_reaper(int reap_all) {
   }
 }
 
-void read_files(DIR* dirp) {
+void read_files(DIR *dirp) {
   struct stat stat_buf;
   unsigned long size;
   struct dirent *direntp;
@@ -109,29 +115,20 @@ void read_files(DIR* dirp) {
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
     if ((prog_props.dereference ? stat(path, &stat_buf)
-                              : lstat(path, &stat_buf)) == -1)
+                                : lstat(path, &stat_buf)) < 0)
       perror(path);
 
     if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) {
-      size = prog_props.bytes
-                 ? stat_buf.st_size
-                 : stat_buf.st_blocks * STAT_DFLT_SIZE / prog_props.block_size;
+      size = calc_size(&stat_buf);
       my_size += size;
 
       if (prog_props.all && prog_props.max_depth != 0 &&
           prog_props.max_depth != -2) { // depth = 0 => last level
-        if (!prog_props.bytes) {
-          if (stat_buf.st_blocks == 0)
-            size = 0;
-          else {
-            size = stat_buf.st_blocks * STAT_DFLT_SIZE / prog_props.block_size;
-            if (size == 0)
-              size = 1;
-          }
-        }
-        printf("%lu\t%s\n", size, path);
+        printf("%lu\t%s\n", lu_ceil((double)size / prog_props.block_size),
+               path);
         fflush(stdout);
       }
+      // TODO acompanhar flags or sempre tamanho real ?
       write_entry_log(size, path);
     }
   }
@@ -151,7 +148,7 @@ int read_dirs(DIR *dirp, char *argv0) {
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
     if ((prog_props.dereference ? stat(path, &stat_buf)
-                              : lstat(path, &stat_buf)) == -1)
+                                : lstat(path, &stat_buf)) < 0)
       perror(path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
@@ -167,17 +164,16 @@ int read_dirs(DIR *dirp, char *argv0) {
 
         // save parent pipe
         prog_props.parent_pipe[READ] = children[prog_props.child_num].fd[READ];
-        prog_props.parent_pipe[WRITE] = children[prog_props.child_num].fd[WRITE];
+        prog_props.parent_pipe[WRITE] =
+            children[prog_props.child_num].fd[WRITE];
         close(prog_props.parent_pipe[READ]); // close reading end
 
         prog_props.child_num = 0; // reset child count
-        my_size = prog_props.bytes ? stat_buf.st_size
-                                 : stat_buf.st_blocks * STAT_DFLT_SIZE /
-                                       prog_props.block_size;
+        my_size = 0;
 
         return 1; // repeat
         break;
-      default:                                // parent
+      default:                                           // parent
         close(children[prog_props.child_num].fd[WRITE]); // close writing end
         ++prog_props.child_num;
         break;
@@ -191,23 +187,33 @@ void path_handler(char *argv0) {
   /* test if file was given, and handle it */
   struct stat stat_buf;
   if ((prog_props.dereference ? stat(prog_props.path, &stat_buf)
-                            : lstat(prog_props.path, &stat_buf)) == -1)
+                              : lstat(prog_props.path, &stat_buf)) == -1)
     exit_perror_log(NON_EXISTING_ENTRY, prog_props.path);
   if (!S_ISDIR(stat_buf.st_mode)) {
-    printf("%lu\t%s\n",
-           prog_props.bytes
-               ? stat_buf.st_size
-               : stat_buf.st_blocks * STAT_DFLT_SIZE / prog_props.block_size,
+    my_size = calc_size(&stat_buf);
+    printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
            prog_props.path);
     exit_log(EXIT_SUCCESS);
   }
+  /*
+   * else {
+   *   my_size = calc_size(&stat_buf);
+   * }
+   */
 
   /* handle dires and their files/links */
   DIR *dirp;
   int analyse = 1;
   while (analyse) {
+    if ((prog_props.dereference ? stat(prog_props.path, &stat_buf)
+                                : lstat(prog_props.path, &stat_buf)) < 0) {
+      pipe_send();
+      exit_perror_log(STAT_FAIL, prog_props.path);
+    }
+    my_size = calc_size(&stat_buf);
+
     if (!(dirp = opendir(prog_props.path))) {
-      perror(prog_props.path);
+      pipe_send();
       exit_perror_log(FAILED_OPENDIR, prog_props.path);
     }
 
