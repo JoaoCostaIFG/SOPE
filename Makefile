@@ -8,7 +8,7 @@ OBJ = ${SRC:.c=.o}
 # compiler and linker
 CC = gcc
 # flags
-CFLAGS   = -pedantic -Wall -Wextra -O2
+CFLAGS = -pedantic -Wall -Wextra -O2
 
 all: options simpledu
 
@@ -21,7 +21,7 @@ options:
 	${CC} -c ${CFLAGS} $<
 
 simpledu: ${OBJ}
-	${CC} -o ${NAME} ${OBJ}
+	${CC} ${CFLAGS} -o ${NAME} ${OBJ}
 
 clean:
 	rm -f ${NAME} ${OBJ}

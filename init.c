@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +47,18 @@ void pathcpycat(char *res, char *p1, char *p2) {
 }
 
 int is_str_num(char *str) {
-  for (size_t i = 0; i < strlen(str); ++i)
+  if (!str)
+    return 0;
+
+  size_t i = 0;
+  if (str[0] == '-' || str[0] == '+') {
+    if (strlen(str) <= 1)
+      return 0;
+    else
+      ++i;
+  }
+
+  for (; i < strlen(str); ++i)
     if (!isdigit(str[i]))
       return 0;
   return 1;
@@ -87,8 +99,13 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
       if (!strcmp(long_options[option_index].name, "max-depth") && optarg) {
         if (!is_str_num(optarg))
           print_usage();
-        else if ((cmd_opts->max_depth = atoi(optarg)) < 0)
-          exit_err_log(INIT, "Invalid maximum depth. It should be >= 0");
+
+        errno = 0;
+        cmd_opts->max_depth = strtol(optarg, NULL, 10);
+        if (errno == ERANGE)
+          exit_err_log(INIT, "Invalid max depth argument. It is too large");
+        else if (cmd_opts->block_size < 0)
+          exit_err_log(INIT, "Invalid max depth argument. It must be >= 0");
       } else
         print_usage();
       break;
@@ -98,16 +115,21 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
     case 'b':
       cmd_opts->bytes = 1;
       break;
-    case 'B': // TODO CHECK overflow
+    case 'B':
       if (!optarg)
         print_usage();
+
+      errno = 0;
       if (optarg[0] == '=' && is_str_num(optarg + 1))
-        cmd_opts->block_size = atoi(optarg + 1);
+        cmd_opts->block_size = strtol(optarg + 1, NULL, 10);
       else if (is_str_num(optarg))
-        cmd_opts->block_size = atoi(optarg);
+        cmd_opts->block_size = strtol(optarg, NULL, 10);
       else
         print_usage();
-      if (cmd_opts->block_size == 0)
+
+      if (errno == ERANGE)
+        exit_err_log(INIT, "Invalid block size argument. It is too large");
+      else if (cmd_opts->block_size <= 0)
         exit_err_log(INIT, "Invalid block size argument. It must be > 0");
       break;
     case 'l':

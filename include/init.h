@@ -12,11 +12,11 @@
 struct cmd_opt {
   int all;
   int bytes;
-  int block_size;
+  long int block_size;
   int count_links;
   int dereference;
   int separate_dirs;
-  int max_depth;
+  long int max_depth;
   char path[MAX_PATH_SIZE + 1];
 };
 typedef struct cmd_opt cmd_opt;

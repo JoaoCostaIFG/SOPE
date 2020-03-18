@@ -116,13 +116,13 @@ char *assemble_args(char *argv0) {
 
   if (cmd_opts.block_size != 1024) {
     strcat(args, " ");
-    sprintf(tmp, "-B=%d", cmd_opts.block_size);
+    sprintf(tmp, "-B=%ld", cmd_opts.block_size);
     strcat(args, tmp);
   }
 
   if (cmd_opts.max_depth >= 0) {
     strcat(args, " ");
-    sprintf(tmp, "--max-depth=%d", cmd_opts.max_depth);
+    sprintf(tmp, "--max-depth=%ld", cmd_opts.max_depth);
     strcat(args, tmp);
   } else if (cmd_opts.max_depth == -2) {
     strcat(args, " --max_depth=0");
