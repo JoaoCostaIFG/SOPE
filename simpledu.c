@@ -97,13 +97,7 @@ void child_reaper(int reap_all) {
   }
 }
 
-void read_files() {
-  DIR *dirp;
-  if (!(dirp = opendir(cmd_opts.path))) {
-    perror(cmd_opts.path);
-    exit_perror_log(FAILED_OPENDIR, cmd_opts.path);
-  }
-
+void read_files(DIR* dirp) {
   struct stat stat_buf;
   unsigned long size;
   struct dirent *direntp;
@@ -144,17 +138,9 @@ void read_files() {
       write_entry_log(size, path);
     }
   }
-
-  closedir(dirp);
 }
 
-int read_dirs(char *argv0) {
-  DIR *dirp;
-  if (!(dirp = opendir(cmd_opts.path))) {
-    perror(cmd_opts.path);
-    exit_perror_log(FAILED_OPENDIR, cmd_opts.path);
-  }
-
+int read_dirs(DIR *dirp, char *argv0) {
   struct stat stat_buf;
   struct dirent *direntp;
   char path[MAX_PATH_SIZE];
@@ -201,8 +187,6 @@ int read_dirs(char *argv0) {
       }
     }
   }
-
-  closedir(dirp);
   return 0;
 }
 
@@ -221,12 +205,27 @@ void path_handler(char *argv0) {
     exit_log(EXIT_SUCCESS);
   }
 
-  do {
-    if (read_dirs(argv0)) // fork dirs
+  /* handle dires and their files/links */
+  DIR *dirp;
+  int analyse = 1;
+  while (analyse) {
+    if (!(dirp = opendir(cmd_opts.path))) {
+      perror(cmd_opts.path);
+      exit_perror_log(FAILED_OPENDIR, cmd_opts.path);
+    }
+
+    if (read_dirs(dirp, argv0)) { // fork dirs
+      analyse = 1;
+      closedir(dirp);
       continue;
-    read_files(); // handle files
+    }
+
+    analyse = 0;
+    rewinddir(dirp);
+    read_files(dirp); // handle files
+    closedir(dirp);
     break;
-  } while (1);
+  }
 
   child_reaper(1);
   pipe_send();

@@ -75,7 +75,7 @@ void set_child_sig(void) {
   struct sigaction sa;
   sa.sa_handler = SIG_IGN;
   sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_NOCLDSTOP;
+  sa.sa_flags = 0;
   if (sigaction(SIGINT, &sa, NULL) == -1)
     exit_perror_log(SIG_FAIL, "ignoring SIGINT handler failed.");
 }
@@ -85,7 +85,7 @@ void set_grandparent_sig(void) {
   struct sigaction sa;
   sa.sa_handler = &sigint_handler;
   sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_NOCLDSTOP;
+  sa.sa_flags = 0;
   if (sigaction(SIGINT, &sa, NULL) == -1)
     exit_perror_log(SIG_FAIL, "setting SIGINT handler failed.");
 }
