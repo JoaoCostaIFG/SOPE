@@ -41,7 +41,8 @@ enum exit_codes {
   EXEC_FAIL = 6,
   MALLOC_FAIL = 7,
   SIG_FAIL = 8,
-  FILE_OPEN_ERROR = 9
+  FILE_OPEN_ERROR = 9,
+  TIME_ERROR = 10
 };
 
 /** write a log message */
@@ -88,5 +89,7 @@ void set_logfile(char *new_logfile);
 
 /** @brief Clears the log file. */
 void clrlogs(void);
+
+void save_starttime(void);
 
 #endif // LOGS_H

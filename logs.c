@@ -7,14 +7,29 @@
 
 #include "include/logs.h"
 
-static char log_file[MAX_LOG_PATH_SIZE + 1] = LOG_DIR LOG_FILE;
+#define NANOSINSEC 1000000000
+#define MILISINNANO 1000000
 
-// TODO need to fix the time
-// it isn't getting the time since parent start (it gets since its own start)
+static char log_file[MAX_LOG_PATH_SIZE + 1] = LOG_DIR LOG_FILE;
+static struct timespec tm;
+
 void write_log(char *action, char *info) {
-  FILE *fp = fopen(log_file, "a");
-  fprintf(fp, "%.2f - %d - %s - %s\n", (float)clock() / CLOCKS_PER_SEC * 1000,
-          getpid(), action, info);
+  FILE *fp;
+  if ((fp = fopen(log_file, "a")) == NULL) {
+    perror("Log file opening error");
+    exit(FILE_OPEN_ERROR);
+  }
+
+  struct timespec tm_now;
+  if (clock_gettime(CLOCK_MONOTONIC, &tm_now) == -1) {
+    perror("Couldn't get time.");
+    exit(TIME_ERROR);
+  }
+
+  float time = (float)((tm_now.tv_sec * NANOSINSEC + tm_now.tv_nsec) -
+                       (tm.tv_sec * NANOSINSEC + tm.tv_nsec)) /
+               MILISINNANO;
+  fprintf(fp, "%.2f - %d - %s - %s\n", time, getpid(), action, info);
   fclose(fp);
 }
 
@@ -106,4 +121,11 @@ void set_logfile(char *new_logfile) {
 void clrlogs(void) {
   /* clear log file contents */
   fclose(fopen(log_file, "w+"));
+}
+
+void save_starttime(void) {
+  if (clock_gettime(CLOCK_MONOTONIC, &tm) == -1) {
+    perror("Couldn't get program start time.");
+    exit(TIME_ERROR);
+  }
 }

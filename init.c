@@ -66,6 +66,7 @@ int is_str_num(char *str) {
 }
 
 void init(int argc, char **argv, cmd_opt *cmd_opts) {
+  save_starttime();
   clrlogs();
   set_logfile(getenv(LOG_ENV_NAME));
 
