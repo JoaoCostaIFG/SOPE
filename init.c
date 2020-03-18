@@ -65,7 +65,7 @@ int is_str_num(char *str) {
   return 1;
 }
 
-void init(int argc, char **argv, cmd_opt *cmd_opts) {
+void init(int argc, char **argv, prog_prop *prog_props) {
   save_starttime();
   clrlogs();
   set_logfile(getenv(LOG_ENV_NAME));
@@ -73,14 +73,15 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
   write_create_log(argc, argv);
 
   // init cmd line options struct
-  cmd_opts->all = 0;
-  cmd_opts->bytes = 0;
-  cmd_opts->block_size = DFLT_BLK_SIZE;
-  cmd_opts->count_links = 1;
-  cmd_opts->dereference = 0;
-  cmd_opts->separate_dirs = 0;
-  cmd_opts->max_depth = -1;
-  cmd_opts->path[0] = '\0';
+  prog_props->all = 0;
+  prog_props->bytes = 0;
+  prog_props->block_size = DFLT_BLK_SIZE;
+  prog_props->count_links = 1;
+  prog_props->dereference = 0;
+  prog_props->separate_dirs = 0;
+  prog_props->max_depth = -1; // default is infinite maxdepth
+  prog_props->path[0] = '\0';
+  prog_props->child_num = 0;
 
   static struct option long_options[] = {
       {"all", no_argument, 0, 'a'},
@@ -103,19 +104,19 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
           print_usage();
 
         errno = 0;
-        cmd_opts->max_depth = strtol(optarg, NULL, 10);
+        prog_props->max_depth = strtol(optarg, NULL, 10);
         if (errno == ERANGE)
           exit_err_log(INIT, "Invalid max depth argument. It is too large");
-        else if (cmd_opts->block_size < 0)
+        else if (prog_props->block_size < 0)
           exit_err_log(INIT, "Invalid max depth argument. It must be >= 0");
       } else
         print_usage();
       break;
     case 'a':
-      cmd_opts->all = 1;
+      prog_props->all = 1;
       break;
     case 'b':
-      cmd_opts->bytes = 1;
+      prog_props->bytes = 1;
       break;
     case 'B':
       if (!optarg)
@@ -123,25 +124,25 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
 
       errno = 0;
       if (optarg[0] == '=' && is_str_num(optarg + 1))
-        cmd_opts->block_size = strtol(optarg + 1, NULL, 10);
+        prog_props->block_size = strtol(optarg + 1, NULL, 10);
       else if (is_str_num(optarg))
-        cmd_opts->block_size = strtol(optarg, NULL, 10);
+        prog_props->block_size = strtol(optarg, NULL, 10);
       else
         print_usage();
 
       if (errno == ERANGE)
         exit_err_log(INIT, "Invalid block size argument. It is too large");
-      else if (cmd_opts->block_size <= 0)
+      else if (prog_props->block_size <= 0)
         exit_err_log(INIT, "Invalid block size argument. It must be > 0");
       break;
     case 'l':
-      cmd_opts->count_links = 1;
+      prog_props->count_links = 1;
       break;
     case 'L':
-      cmd_opts->dereference = 1;
+      prog_props->dereference = 1;
       break;
     case 'S':
-      cmd_opts->separate_dirs = 1;
+      prog_props->separate_dirs = 1;
       break;
     case '?': // invalid option
       print_usage();
@@ -155,13 +156,13 @@ void init(int argc, char **argv, cmd_opt *cmd_opts) {
   // TODO check for multiple paths given?
   if (optind < argc) {
     while (optind < argc)
-      pathcat(cmd_opts->path, argv[optind++]);
+      pathcat(prog_props->path, argv[optind++]);
   } else {
     print_usage();
   }
 }
 
-char *assemble_args(char *argv0, cmd_opt *cmd_opts) {
+char *assemble_args(char *argv0, prog_prop *prog_props) {
   /* args normais, B, depth, path, terminating NULL */
   char *args = (char *)malloc(sizeof(char) * MAX_PATH_SIZE);
   if (!args)
@@ -170,48 +171,49 @@ char *assemble_args(char *argv0, cmd_opt *cmd_opts) {
   strcpy(args, argv0);
 
   char tmp[40];
-  sprintf(tmp, "-%s%s%s%s%s", cmd_opts->all ? "a" : "",
-          cmd_opts->bytes ? "b" : "", cmd_opts->count_links ? "l" : "",
-          cmd_opts->dereference ? "L" : "", cmd_opts->separate_dirs ? "S" : "");
+  sprintf(tmp, "-%s%s%s%s%s", prog_props->all ? "a" : "",
+          prog_props->bytes ? "b" : "", prog_props->count_links ? "l" : "",
+          prog_props->dereference ? "L" : "",
+          prog_props->separate_dirs ? "S" : "");
   if (strcmp(tmp, "-")) {
     strcat(args, " ");
     strcat(args, tmp);
   }
 
-  if (cmd_opts->block_size != 1024) {
+  if (prog_props->block_size != 1024) {
     strcat(args, " ");
-    sprintf(tmp, "-B=%ld", cmd_opts->block_size);
+    sprintf(tmp, "-B=%ld", prog_props->block_size);
     strcat(args, tmp);
   }
 
-  if (cmd_opts->max_depth >= 0) {
+  if (prog_props->max_depth >= 0) {
     strcat(args, " ");
-    sprintf(tmp, "--max-depth=%ld", cmd_opts->max_depth);
+    sprintf(tmp, "--max-depth=%ld", prog_props->max_depth);
     strcat(args, tmp);
-  } else if (cmd_opts->max_depth == -2) {
+  } else if (prog_props->max_depth == -2) {
     strcat(args, " --max_depth=0");
   }
 
   /* path */
   strcat(args, " ");
-  strcat(args, cmd_opts->path);
+  strcat(args, prog_props->path);
   return args;
 }
 
-void init_child(char* argv0, char* new_path, cmd_opt *cmd_opts) {
+void init_child(char *argv0, char *new_path, prog_prop *prog_props) {
   // cmd line args
-  strcpy(cmd_opts->path, new_path);
+  strcpy(prog_props->path, new_path);
   char *tmp;
-  tmp = assemble_args(argv0, cmd_opts);
+  tmp = assemble_args(argv0, prog_props);
   LOG_CREATE(tmp);
   free(tmp);
 
   set_signals();
 
-  if (cmd_opts->max_depth == 1)
-    cmd_opts->max_depth = -2; // print only the dir
-  else if (cmd_opts->max_depth == -2)
-    cmd_opts->max_depth = 0; // don't print anything else
-  else if (cmd_opts->max_depth > 0)
-    --cmd_opts->max_depth; // lower one lvl if not -1 (infinite)
+  if (prog_props->max_depth == 1)
+    prog_props->max_depth = -2; // print only the dir
+  else if (prog_props->max_depth == -2)
+    prog_props->max_depth = 0; // don't print anything else
+  else if (prog_props->max_depth > 0)
+    --prog_props->max_depth; // lower one lvl if not -1 (infinite)
 }
