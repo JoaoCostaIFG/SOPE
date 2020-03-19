@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,8 +18,8 @@
 #define READ 0
 #define WRITE 1
 
-#define SINGLE_REAP 0
-#define REAP_ALL 1
+#define SINGLE_REAP 3
+#define REAP_ALL -1
 
 struct child_elem {
   pid_t pid; // if > 0 pid o process, if -1 process dead
@@ -87,18 +88,19 @@ void rm_child(pid_t pid) {
   }
 }
 
-void child_reaper(int reap_all) {
+void child_reaper(int reap_num) {
   if (!prog_props.child_num)
     return;
 
-  if (reap_all) {
+  if (reap_num == -1) {
     for (size_t i = 0; i < prog_props.child_num; ++i) {
       rm_child(wait(NULL));
     }
   } else {
-    pid_t pid;
-    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
-      rm_child(pid);
+    errno = 0;
+    while (errno != ECHILD && reap_num > 0) {
+      rm_child(waitpid(-1, NULL, WNOHANG));
+      --reap_num;
     }
   }
 }
@@ -121,12 +123,13 @@ void read_files(DIR *dirp) {
                                 : lstat(path, &stat_buf)) < 0)
       perror(path);
 
+    // TODO FIFOS?
     if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) {
       size = calc_size(&stat_buf);
       my_size += size;
 
-      if (prog_props.all && prog_props.max_depth != 0 &&
-          prog_props.max_depth != -2) { // depth = 0 => last level
+      if (prog_props.all && prog_props.max_depth != 0) {
+        // depth = 0 => last level
         printf("%lu\t%s\n", lu_ceil((double)size / prog_props.block_size),
                path);
         fflush(stdout);

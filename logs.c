@@ -7,11 +7,22 @@
 
 #include "include/logs.h"
 
+#define TIMEREF_S_ENV "SIMPLEDU_S_TIMEREF"
+#define TIMEREF_NS_ENV "SIMPLEDU_NS_TIMEREF"
+
+#define MAX_TIME_LEN 30
+
 #define NANOSINSEC 1000000000
 #define MILISINNANO 1000000
 
 static char log_file[MAX_LOG_PATH_SIZE + 1] = LOG_DIR LOG_FILE;
 static struct timespec tm;
+
+float tm_to_milisecond(struct timespec *tm_now) {
+  return (float)((tm_now->tv_sec * NANOSINSEC + tm_now->tv_nsec) -
+                 (tm.tv_sec * NANOSINSEC + tm.tv_nsec)) /
+         MILISINNANO;
+}
 
 void write_log(char *action, char *info) {
   FILE *fp;
@@ -26,10 +37,8 @@ void write_log(char *action, char *info) {
     exit(TIME_ERROR);
   }
 
-  float time = (float)((tm_now.tv_sec * NANOSINSEC + tm_now.tv_nsec) -
-                       (tm.tv_sec * NANOSINSEC + tm.tv_nsec)) /
-               MILISINNANO;
-  fprintf(fp, "%.2f - %d - %s - %s\n", time, getpid(), action, info);
+  fprintf(fp, "%.2f - %d - %s - %s\n", tm_to_milisecond(&tm_now), getpid(),
+          action, info);
   fclose(fp);
 }
 
@@ -128,4 +137,23 @@ void save_starttime(void) {
     perror("Couldn't get program start time.");
     exit(TIME_ERROR);
   }
+
+  // TODO error check
+  char sec[MAX_TIME_LEN + 1], nanosec[MAX_TIME_LEN + 1];
+  snprintf(sec, 30, "%lld", (long long) tm.tv_sec);
+  snprintf(nanosec, 30, "%ld", tm.tv_nsec);
+
+  setenv(TIMEREF_S_ENV, sec, 1);
+  setenv(TIMEREF_NS_ENV, nanosec, 1);
+}
+
+void get_reftime(void) {
+  char *tmp_sec, *tmp_nsec;
+  if ((tmp_sec = getenv(TIMEREF_S_ENV)) == NULL || (tmp_nsec = getenv(TIMEREF_NS_ENV)) == NULL) {
+    save_starttime();
+    return;
+  }
+
+  tm.tv_sec = strtoll(tmp_sec, NULL, 10);
+  tm.tv_nsec = strtol(tmp_nsec, NULL, 10);
 }

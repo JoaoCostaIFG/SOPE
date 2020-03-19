@@ -34,8 +34,8 @@ void pathcpycat(char *res, char *p1, char *p2);
 
 void init(int argc, char **argv, prog_prop *prog_props);
 
-char *assemble_args(char *argv0, prog_prop *prog_props);
+int assemble_args(char **argv, prog_prop *prog_props);
 
-void init_child(char *argv0, char *new_path, prog_prop *prog_props);
+void init_child(char **argv, char *new_path, prog_prop *prog_props);
 
 #endif // INIT_H

@@ -66,7 +66,7 @@ int is_str_num(char *str) {
 }
 
 void init(int argc, char **argv, prog_prop *prog_props) {
-  save_starttime();
+  get_reftime(); // get/save program's reference starting time
   clrlogs();
   set_logfile(getenv(LOG_ENV_NAME));
 
@@ -163,53 +163,32 @@ void init(int argc, char **argv, prog_prop *prog_props) {
   }
 }
 
-char *assemble_args(char *argv0, prog_prop *prog_props) {
-  /* args normais, B, depth, path, terminating NULL */
-  char *args = (char *)malloc(sizeof(char) * MAX_PATH_SIZE);
-  if (!args)
-    exit_log(MALLOC_FAIL);
+int assemble_args(char **argv, prog_prop *prog_props) {
+  /* argv0, args normais, B, depth, path, terminating NULL */
+  int argc = 0;
 
-  strcpy(args, argv0);
+  // max depth
+  if (prog_props->max_depth != -1) { // decrease max-depth
 
-  char tmp[40];
-  sprintf(tmp, "-%s%s%s%s%s", prog_props->all ? "a" : "",
-          prog_props->bytes ? "b" : "", prog_props->count_links ? "l" : "",
-          prog_props->dereference ? "L" : "",
-          prog_props->separate_dirs ? "S" : "");
-  if (strcmp(tmp, "-")) {
-    strcat(args, " ");
-    strcat(args, tmp);
+
+    if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
+      exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
+    sprintf(args[i++], "--max-depth=%ld", prog_props->max_depth - 1);
+
+
   }
 
-  if (prog_props->block_size != 1024) {
-    strcat(args, " ");
-    sprintf(tmp, "-B=%ld", prog_props->block_size);
-    strcat(args, tmp);
-  }
+  // path
+  if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
+    exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
+  strcpy(args[i++], file_path);
 
-  if (prog_props->max_depth >= 0) {
-    strcat(args, " ");
-    sprintf(tmp, "--max-depth=%ld", prog_props->max_depth);
-    strcat(args, tmp);
-  } else if (prog_props->max_depth == -2) {
-    strcat(args, " --max_depth=0");
-  }
-
-  /* path */
-  strcat(args, " ");
-  strcat(args, prog_props->path);
-  return args;
+  return argc;
 }
 
-void init_child(char *argv0, char *new_path, prog_prop *prog_props) {
+void init_child(char **argv, char *new_path, prog_prop *prog_props) {
   // cmd line args
   strcpy(prog_props->path, new_path);
-  char *tmp;
-  tmp = assemble_args(argv0, prog_props);
-  LOG_CREATE(tmp);
-  free(tmp);
-
-  set_signals();
 
   if (prog_props->max_depth == 1)
     prog_props->max_depth = -2; // print only the dir
@@ -217,4 +196,8 @@ void init_child(char *argv0, char *new_path, prog_prop *prog_props) {
     prog_props->max_depth = 0; // don't print anything else
   else if (prog_props->max_depth > 0)
     --prog_props->max_depth; // lower one lvl if not -1 (infinite)
+
+  int argc = assemble_args(argv, prog_props);
+  write_create_log(argc, argv);
+  // exec
 }

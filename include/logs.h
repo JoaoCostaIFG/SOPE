@@ -93,4 +93,6 @@ void clrlogs(void);
 
 void save_starttime(void);
 
+void get_reftime(void);
+
 #endif // LOGS_H
