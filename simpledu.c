@@ -17,6 +17,9 @@
 #define READ 0
 #define WRITE 1
 
+#define SINGLE_REAP 0
+#define REAP_ALL 1
+
 struct child_elem {
   pid_t pid; // if > 0 pid o process, if -1 process dead
   int fd[2];
@@ -75,7 +78,7 @@ void rm_child(pid_t pid) {
         exit_perror_log(PIPE_FAIL, "Reading from pipe failure");
       fclose(fp);
       close(children[i].fd[READ]); // close fd
-      write_sendpipe_log(my_size); // log pipe receive
+      write_recvpipe_log(my_size); // log pipe receive
 
       if (!prog_props.separate_dirs) // skip sub-dir size
         my_size += size;
@@ -110,7 +113,7 @@ void read_files(DIR *dirp) {
     if (!strcmp(direntp->d_name, ".") || !strcmp(direntp->d_name, ".."))
       continue;
 
-    child_reaper(0); // reap children
+    child_reaper(SINGLE_REAP); // reap children
 
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
@@ -143,7 +146,7 @@ int read_dirs(DIR *dirp, char *argv0) {
     if (!strcmp(direntp->d_name, ".") || !strcmp(direntp->d_name, ".."))
       continue;
 
-    child_reaper(0); // reap children
+    child_reaper(SINGLE_REAP); // reap children
 
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
@@ -232,7 +235,7 @@ void path_handler(char *argv0) {
     break;
   }
 
-  child_reaper(1);
+  child_reaper(REAP_ALL);
   pipe_send();
 }
 
