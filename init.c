@@ -203,9 +203,8 @@ void init_child(char **argv, char *new_path, prog_prop *prog_props) {
     --prog_props->max_depth; // lower one lvl if not -1 (infinite)
 
   assemble_args(argv, prog_props, new_path);
-  /* write_create_log(argv); */
-  execv(argv[0], argv);
 
+  execv(argv[0], argv);
   /* failed exec */
   exit_perror_log(EXEC_FAIL, "Exec failed");
 }

@@ -23,6 +23,7 @@
 
 struct child_elem {
   pid_t pid; // if > 0 pid o process, if -1 process dead
+  char *path;
   int fd;
 };
 typedef struct child_elem child_elem;
@@ -43,47 +44,51 @@ void pipe_send() {
     // write size to pipe
     char my_size_str[PIPE_BUF + 1];
     sprintf(my_size_str, "%lu\n", my_size);
+
     write(prog_props.upstream_fd, my_size_str, strlen(my_size_str));
-    if (close(prog_props.upstream_fd) == -1) // TODO wtf esta linha crasha o prog
-      perror("aqui o close rafado");
+    if (close(prog_props.upstream_fd) == -1)
+      exit_perror_log(PIPE_FAIL, "Tried to close PIPE that was already closed");
 
     write_sendpipe_log(my_size); // log pipe send
-
-    printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
-           prog_props.path);
-    fflush(stdout);
   } else {
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
            prog_props.path);
     fflush(stdout);
-  }
 
-  write_entry_log(my_size, prog_props.path);
+    write_entry_log(my_size, prog_props.path);
+  }
 }
 
 void rm_child(pid_t pid) {
   if (pid < 0)
     return;
 
+  int read_len;
+  char pipe_content[PIPE_BUF + 1];
   unsigned long size;
   for (size_t i = 0; i < prog_props.child_num; ++i) {
     if (children[i].pid == pid) {
       children[i].pid = -1;
 
       // read pipe info
-      char pipe_content[PIPE_BUF + 1];
-      int read_len;
       if ((read_len = read(children[i].fd, pipe_content, PIPE_BUF)) == -1)
         exit_perror_log(PIPE_FAIL, "reading from pipe failure");
       else if (read_len == 0)
-        fprintf(stderr, "ler pipe  EOF - %s\n", prog_props.path);
+        size = 0;
+      else {
+        if (sscanf(pipe_content, "%lu", &size) != 1)
+          size = 0;
+      }
 
       close(children[i].fd);
+      write_log(RECVPIPE_LOG, pipe_content);
 
-      /* write_recvpipe_log(my_size); // log pipe receive */
-      write_log(RECVPIPE_LOG, pipe_content); // TODO
+      if (prog_props.max_depth != 0) {
+        printf("%lu\t%s/%s\n", lu_ceil((double)size / prog_props.block_size),
+               prog_props.path, children[i].path);
+        fflush(stdout);
+      }
 
-      sscanf(pipe_content, "%lu", &size);
       if (!prog_props.separate_dirs) // skip sub-dir size
         my_size += size;
       return;
@@ -162,8 +167,9 @@ void read_dirs(DIR *dirp, char **argv) {
       perror(path);
 
     if (S_ISDIR(stat_buf.st_mode)) {
-      int fd[2];
-      pipe(fd);           // pipe
+      int fd[2]; // pipe to communicate size upstream
+      pipe(fd);
+
       pid_t pid = fork(); // fork
       switch (pid) {
       case -1: // failed fork
@@ -173,19 +179,25 @@ void read_dirs(DIR *dirp, char **argv) {
       case 0: // child
         close(fd[READ]);
         /* close other pipes that we won't need */
-        /*
-         * if (prog_props.upstream_fd != STDOUT_FILENO)
-         *   close(prog_props.upstream_fd);
-         * for (size_t i = 0; i < prog_props.child_num; ++i)
-         *   if (children[i].pid > 0)
-         *     close(children[i].fd);
-         */
+        if (prog_props.upstream_fd != STDOUT_FILENO)
+          close(prog_props.upstream_fd);
+        for (size_t i = 0; i < prog_props.child_num; ++i)
+          if (children[i].pid > 0)
+            close(children[i].fd);
 
         init_child(argv, path, &prog_props);
         break;
       default: // parent
         close(fd[WRITE]);
         children[prog_props.child_num].fd = fd[READ];
+
+        /* save child name */
+        children[prog_props.child_num].path =
+            (char *)malloc(sizeof(char) * (strlen(direntp->d_name) + 1));
+        if (!children[prog_props.child_num].path)
+          exit_log(MALLOC_FAIL);
+        strcpy(children[prog_props.child_num].path, direntp->d_name);
+
         ++prog_props.child_num;
         break;
       }
@@ -230,7 +242,7 @@ void path_handler(char **argv) {
   pipe_send();
 }
 
-void get_parent_fd(void) {
+void get_upstream_fd(void) {
   if (is_grandparent())
     return;
 
@@ -245,7 +257,12 @@ void get_parent_fd(void) {
     stat(path, &stat_buf);
     if (S_ISFIFO(stat_buf.st_mode)) { // is pipe?
       prog_props.upstream_fd = atoi(direntp->d_name);
-      return;
+
+      /* printf("%d\n", prog_props.upstream_fd); */
+      if (prog_props.upstream_fd != STDIN_FILENO &&
+          prog_props.upstream_fd != STDOUT_FILENO &&
+          prog_props.upstream_fd != STDERR_FILENO)
+        return;
     }
   }
 }
@@ -254,7 +271,7 @@ int main(int argc, char *argv[]) {
   init(argc, argv, &prog_props);
 
   /* fd memes */
-  get_parent_fd();
+  get_upstream_fd();
 
   /* fork subdirs and process files */
   path_handler(argv);
