@@ -18,10 +18,12 @@
 static char log_file[MAX_LOG_PATH_SIZE + 1] = LOG_DIR LOG_FILE;
 static struct timespec tm;
 
-float tm_to_milisecond(struct timespec *tm_now) {
-  return (float)((tm_now->tv_sec * NANOSINSEC + tm_now->tv_nsec) -
-                 (tm.tv_sec * NANOSINSEC + tm.tv_nsec)) /
-         MILISINNANO;
+double tm_to_milisecond(struct timespec *tm_now) {
+  double ret = (double)tm_now->tv_sec * NANOSINSEC + tm_now->tv_nsec;
+  ret -= tm.tv_sec * NANOSINSEC + tm.tv_nsec;
+  ret /= MILISINNANO;
+
+  return ret;
 }
 
 void write_log(char *action, char *info) {
@@ -37,7 +39,7 @@ void write_log(char *action, char *info) {
     exit(TIME_ERROR);
   }
 
-  fprintf(fp, "%.2f - %d - %s - %s\n", tm_to_milisecond(&tm_now), getpid(),
+  fprintf(fp, "%.2lf - %d - %s - %s\n", tm_to_milisecond(&tm_now), getpid(),
           action, info);
   fclose(fp);
 }
@@ -49,13 +51,19 @@ void write_entry_log(unsigned size, char *name) {
   LOG_ENTRY(info);
 }
 
-void write_create_log(int argc, char **argv) {
+void write_create_log(char **argv) {
   FILE *fp = fopen(log_file, "a");
 
-  fprintf(fp, "%.2f - %d - %s -", (float)clock() / CLOCKS_PER_SEC * 1000,
-          getpid(), CREATE_LOG);
+  struct timespec tm_now;
+  if (clock_gettime(CLOCK_MONOTONIC, &tm_now) == -1) {
+    perror("Couldn't get time.");
+    exit(TIME_ERROR);
+  }
 
-  for (int i = 0; i < argc; ++i)
+  fprintf(fp, "%.2lf - %d - %s -", tm_to_milisecond(&tm_now), getpid(),
+          CREATE_LOG);
+
+  for (int i = 0; argv[i] != NULL; ++i)
     fprintf(fp, " %s", argv[i]);
   fputc('\n', fp);
 
@@ -140,7 +148,7 @@ void save_starttime(void) {
 
   // TODO error check
   char sec[MAX_TIME_LEN + 1], nanosec[MAX_TIME_LEN + 1];
-  snprintf(sec, 30, "%lld", (long long) tm.tv_sec);
+  snprintf(sec, 30, "%lld", (long long)tm.tv_sec);
   snprintf(nanosec, 30, "%ld", tm.tv_nsec);
 
   setenv(TIMEREF_S_ENV, sec, 1);
@@ -149,7 +157,8 @@ void save_starttime(void) {
 
 void get_reftime(void) {
   char *tmp_sec, *tmp_nsec;
-  if ((tmp_sec = getenv(TIMEREF_S_ENV)) == NULL || (tmp_nsec = getenv(TIMEREF_NS_ENV)) == NULL) {
+  if ((tmp_sec = getenv(TIMEREF_S_ENV)) == NULL ||
+      (tmp_nsec = getenv(TIMEREF_NS_ENV)) == NULL) {
     save_starttime();
     return;
   }

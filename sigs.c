@@ -106,6 +106,7 @@ void set_grandparent_sig(void) {
 
 void set_signals(void) {
   getGrpId();
+
   if (is_grandparent()) {
     set_grandparent(); // save process group id for children
     set_grandparent_sig();

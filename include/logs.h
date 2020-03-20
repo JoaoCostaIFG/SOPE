@@ -62,7 +62,7 @@ void write_log(char *action, char *info);
 void write_entry_log(unsigned size, char *name);
 
 /** @brief Format and write command line arguments to log. */
-void write_create_log(int argc, char **argv);
+void write_create_log(char **argv);
 
 /** @brief Format and write signal receiving event to log. */
 void write_recvpipe_log(long info);

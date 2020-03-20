@@ -66,22 +66,25 @@ int is_str_num(char *str) {
 }
 
 void init(int argc, char **argv, prog_prop *prog_props) {
-  get_reftime(); // get/save program's reference starting time
-  clrlogs();
-  set_logfile(getenv(LOG_ENV_NAME));
-
-  write_create_log(argc, argv);
+  set_logfile(getenv(LOG_ENV_NAME)); // set log file name
+  get_reftime();        // get/save program's reference starting time
+  getGrpId();           // set child status
+  if (is_grandparent()) // clr logs if grandparent
+    clrlogs();
+  set_signals(); // set signal
+  write_create_log(argv);
 
   // init cmd line options struct
-  prog_props->all = 0;
-  prog_props->bytes = 0;
+  prog_props->all = DFLT_ALL_OP;
+  prog_props->bytes = DFLT_BYTES_OP;
   prog_props->block_size = DFLT_BLK_SIZE;
-  prog_props->count_links = 1;
-  prog_props->dereference = 0;
-  prog_props->separate_dirs = 0;
-  prog_props->max_depth = -1; // default is infinite maxdepth
+  prog_props->count_links = DFLT_CNT_LNK_OP;
+  prog_props->dereference = DFLT_DEREF_OP;
+  prog_props->separate_dirs = DFLT_SEPDIRS_OP;
+  prog_props->max_depth = DFLT_MAXDPTH_OP; // default is infinite maxdepth
   prog_props->path[0] = '\0';
   prog_props->child_num = 0;
+  prog_props->upstream_fd = STDOUT_FILENO;
 
   static struct option long_options[] = {
       {"all", no_argument, 0, 'a'},
@@ -163,41 +166,46 @@ void init(int argc, char **argv, prog_prop *prog_props) {
   }
 }
 
-int assemble_args(char **argv, prog_prop *prog_props) {
+void assemble_args(char **argv, prog_prop *prog_props, char *new_path) {
   /* argv0, args normais, B, depth, path, terminating NULL */
-  int argc = 0;
 
   // max depth
-  if (prog_props->max_depth != -1) { // decrease max-depth
-
-
-    if (!(args[i] = (char *)malloc(sizeof(char) * 24)))
-      exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
-    sprintf(args[i++], "--max-depth=%ld", prog_props->max_depth - 1);
-
-
+  int i;
+  if (prog_props->max_depth != DFLT_MAXDPTH_OP) { // decrease max-depth
+    i = 0;
+    while (argv[i] != NULL) {
+      if (!strncmp(argv[i], "--max-depth", 11))
+        break;
+      else
+        ++i;
+    }
+    sprintf(argv[i], "--max-depth %ld", prog_props->max_depth);
   }
 
   // path
-  if (!(args[i] = (char *)malloc(sizeof(char) * (strlen(file_path) + 1))))
-    exit_err_log(MALLOC_FAIL, "Heap memory allocation failure.");
-  strcpy(args[i++], file_path);
-
-  return argc;
+  i = 0;
+  while (argv[i] != NULL) {
+    if (!strcmp(argv[i], prog_props->path))
+      break;
+    else
+      ++i;
+  }
+  /* free(argv[i]); */
+  argv[i] = (char *)malloc(sizeof(char) * (strlen(new_path) + 1));
+  if (argv[i] == NULL) {
+    exit_perror_log(MALLOC_FAIL, "Heap memory allocation failed");
+  }
+  strcpy(argv[i], new_path);
 }
 
 void init_child(char **argv, char *new_path, prog_prop *prog_props) {
-  // cmd line args
-  strcpy(prog_props->path, new_path);
-
-  if (prog_props->max_depth == 1)
-    prog_props->max_depth = -2; // print only the dir
-  else if (prog_props->max_depth == -2)
-    prog_props->max_depth = 0; // don't print anything else
-  else if (prog_props->max_depth > 0)
+  if (prog_props->max_depth > 0)
     --prog_props->max_depth; // lower one lvl if not -1 (infinite)
 
-  int argc = assemble_args(argv, prog_props);
-  write_create_log(argc, argv);
-  // exec
+  assemble_args(argv, prog_props, new_path);
+  /* write_create_log(argv); */
+  execv(argv[0], argv);
+
+  /* failed exec */
+  exit_perror_log(EXEC_FAIL, "Exec failed");
 }
