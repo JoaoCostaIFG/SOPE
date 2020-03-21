@@ -48,8 +48,13 @@ void pipe_send() {
     write(prog_props.upstream_fd, my_size_str, strlen(my_size_str));
     if (close(prog_props.upstream_fd) == -1)
       exit_perror_log(PIPE_FAIL, "Tried to close PIPE that was already closed");
-
     write_sendpipe_log(my_size); // log pipe send
+
+    if (prog_props.max_depth != 0) {
+      printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
+             prog_props.path);
+      fflush(stdout);
+    }
   } else {
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
            prog_props.path);
@@ -83,11 +88,13 @@ void rm_child(pid_t pid) {
       close(children[i].fd);
       write_log(RECVPIPE_LOG, pipe_content);
 
-      if (prog_props.max_depth != 0) {
-        printf("%lu\t%s/%s\n", lu_ceil((double)size / prog_props.block_size),
-               prog_props.path, children[i].path);
-        fflush(stdout);
-      }
+      /*
+       * if (prog_props.max_depth != 0) {
+       *   printf("%lu\t%s/%s\n", lu_ceil((double)size / prog_props.block_size),
+       *          prog_props.path, children[i].path);
+       *   fflush(stdout);
+       * }
+       */
 
       if (!prog_props.separate_dirs) // skip sub-dir size
         my_size += size;
