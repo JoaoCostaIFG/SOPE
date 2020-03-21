@@ -49,12 +49,6 @@ void pipe_send() {
     if (close(prog_props.upstream_fd) == -1)
       exit_perror_log(PIPE_FAIL, "Tried to close PIPE that was already closed");
     write_sendpipe_log(my_size); // log pipe send
-
-    if (prog_props.max_depth != 0) {
-      printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
-             prog_props.path);
-      fflush(stdout);
-    }
   } else {
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
            prog_props.path);
@@ -71,6 +65,7 @@ void rm_child(pid_t pid) {
   int read_len;
   char pipe_content[PIPE_BUF + 1];
   unsigned long size;
+  char entry[MAX_PATH_SIZE];
   for (size_t i = 0; i < prog_props.child_num; ++i) {
     if (children[i].pid == pid) {
       children[i].pid = -1;
@@ -88,13 +83,12 @@ void rm_child(pid_t pid) {
       close(children[i].fd);
       write_log(RECVPIPE_LOG, pipe_content);
 
-      /*
-       * if (prog_props.max_depth != 0) {
-       *   printf("%lu\t%s/%s\n", lu_ceil((double)size / prog_props.block_size),
-       *          prog_props.path, children[i].path);
-       *   fflush(stdout);
-       * }
-       */
+      if (prog_props.max_depth != 0) {
+        pathcpycat(entry, prog_props.path, children[i].path);
+        printf("%lu\t%s\n", lu_ceil((double)size / prog_props.block_size),
+               entry);
+        fflush(stdout);
+      }
 
       if (!prog_props.separate_dirs) // skip sub-dir size
         my_size += size;
@@ -205,7 +199,8 @@ void read_dirs(DIR *dirp, char **argv) {
           exit_log(MALLOC_FAIL);
         strcpy(children[prog_props.child_num].path, direntp->d_name);
 
-        ++prog_props.child_num;
+        /* save pid and increase child count */
+        children[prog_props.child_num++].pid = pid;
         break;
       }
     }

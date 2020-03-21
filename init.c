@@ -179,7 +179,7 @@ void assemble_args(char **argv, prog_prop *prog_props, char *new_path) {
       else
         ++i;
     }
-    sprintf(argv[i], "--max-depth %ld", prog_props->max_depth);
+    sprintf(argv[i + 1], "%ld", prog_props->max_depth);
   }
 
   // path
