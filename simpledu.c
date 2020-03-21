@@ -44,10 +44,10 @@ void pipe_send() {
     // write size to pipe
     char my_size_str[PIPE_BUF + 1];
     sprintf(my_size_str, "%lu\n", my_size);
-
     write(prog_props.upstream_fd, my_size_str, strlen(my_size_str));
+
     if (close(prog_props.upstream_fd) == -1)
-      exit_perror_log(PIPE_FAIL, "Tried to close PIPE that was already closed");
+      exit_perror_log(PIPE_FAIL, "");
     write_sendpipe_log(my_size); // log pipe send
   } else {
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
@@ -72,19 +72,24 @@ void rm_child(pid_t pid) {
 
       // read pipe info
       if ((read_len = read(children[i].fd, pipe_content, PIPE_BUF)) == -1)
-        exit_perror_log(PIPE_FAIL, "reading from pipe failure");
+        exit_perror_log(PIPE_FAIL, "Reading from pipe failure");
       else if (read_len == 0)
         size = 0;
       else {
         if (sscanf(pipe_content, "%lu", &size) != 1)
           size = 0;
       }
+      if (close(children[i].fd) == -1)
+        exit_perror_log(PIPE_FAIL, "");
 
-      close(children[i].fd);
-      write_log(RECVPIPE_LOG, pipe_content);
+      /* logs */
+      LOG_RECVPIPE(pipe_content);
+      pathcpycat(entry, prog_props.path, children[i].path);
+      write_entry_log(size, entry);
+      free(children[i].path);
 
+      /* write entry info */
       if (prog_props.max_depth != 0) {
-        pathcpycat(entry, prog_props.path, children[i].path);
         printf("%lu\t%s\n", lu_ceil((double)size / prog_props.block_size),
                entry);
         fflush(stdout);
