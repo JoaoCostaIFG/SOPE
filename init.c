@@ -170,6 +170,8 @@ void assemble_args(char **argv, prog_prop *prog_props, char *new_path) {
   /* argv0, args normais, B, depth, path, terminating NULL */
 
   // max depth
+  // we don't need to realloc memory because our output is garanteed
+  // to be smaller or equal in length to the original strings
   int i;
   if (prog_props->max_depth != DFLT_MAXDPTH_OP) { // decrease max-depth
     i = 0;
@@ -179,7 +181,12 @@ void assemble_args(char **argv, prog_prop *prog_props, char *new_path) {
       else
         ++i;
     }
-    sprintf(argv[i + 1], "%ld", prog_props->max_depth);
+
+    /* need to be carefull with the different long forms of this option */
+    if (strchr(argv[i], '=') == NULL) // '=' not found
+      sprintf(argv[i + 1], "%ld", prog_props->max_depth);
+    else // '=' found
+      sprintf(argv[i], "--max-depth=%ld", prog_props->max_depth);
   }
 
   // path
@@ -190,7 +197,7 @@ void assemble_args(char **argv, prog_prop *prog_props, char *new_path) {
     else
       ++i;
   }
-  /* free(argv[i]); */
+
   argv[i] = (char *)malloc(sizeof(char) * (strlen(new_path) + 1));
   if (argv[i] == NULL) {
     exit_perror_log(MALLOC_FAIL, "Heap memory allocation failed");

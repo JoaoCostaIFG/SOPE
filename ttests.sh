@@ -84,6 +84,11 @@ fi
 # block size
 test "-aB4096000000000000000"
 
+# max depth
+test "-la" "--max-depth" "0"
+test "-lb" "--max-depth" "1"
+test "-lSa" "--max-depth" "2"
+
 make clean
 echo ""
 echo "Finished"
