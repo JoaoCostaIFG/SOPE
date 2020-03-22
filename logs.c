@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "include/logs.h"
+#include "include/utls.h"
 
 #define TIMEREF_S_ENV "SIMPLEDU_S_TIMEREF"
 #define TIMEREF_NS_ENV "SIMPLEDU_NS_TIMEREF"
@@ -146,23 +147,14 @@ void save_starttime(void) {
     exit(TIME_ERROR);
   }
 
-  // TODO error check
-  char sec[MAX_TIME_LEN + 1], nanosec[MAX_TIME_LEN + 1];
-  snprintf(sec, 30, "%lld", (long long)tm.tv_sec);
-  snprintf(nanosec, 30, "%ld", tm.tv_nsec);
-
-  setenv(TIMEREF_S_ENV, sec, 1);
-  setenv(TIMEREF_NS_ENV, nanosec, 1);
+  if (set_env_longlong(TIMEREF_S_ENV, (long long)tm.tv_sec, 1) ||
+      set_env_long(TIMEREF_NS_ENV, tm.tv_nsec, 1))
+    exit_perror_log(ENV_ERROR, "");
 }
 
 void get_reftime(void) {
-  char *tmp_sec, *tmp_nsec;
-  if ((tmp_sec = getenv(TIMEREF_S_ENV)) == NULL ||
-      (tmp_nsec = getenv(TIMEREF_NS_ENV)) == NULL) {
+  if (get_env_longlong(TIMEREF_S_ENV, (long long *)&tm.tv_sec) ||
+      get_env_long(TIMEREF_NS_ENV, &tm.tv_nsec)) {
     save_starttime();
-    return;
   }
-
-  tm.tv_sec = strtoll(tmp_sec, NULL, 10);
-  tm.tv_nsec = strtol(tmp_nsec, NULL, 10);
 }

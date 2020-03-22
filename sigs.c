@@ -6,6 +6,7 @@
 
 #include "include/logs.h"
 #include "include/sigs.h"
+#include "include/utls.h"
 
 #define GRPID_ENV "SIMPLEDU_GRPID"
 
@@ -20,22 +21,15 @@
 static pid_t pg_id = 0; /**< process group of children (0 is invalid) */
 
 pid_t getGrpId(void) {
-  char *tmp;
-  if ((tmp = getenv(GRPID_ENV)) == NULL) {
+  if (get_env_int(GRPID_ENV, &pg_id))
     pg_id = 0;
-    return 0;
-  }
 
-  pg_id = (pid_t)atol(tmp);
   return pg_id;
 }
 
 void set_pg_id(pid_t pid) {
   pg_id = pid;
-  char env_var[20];
-  sprintf(env_var, "%d", pg_id);
-
-  setenv(GRPID_ENV, env_var, 1);
+  set_env_int(GRPID_ENV, pid, 1);
 }
 
 void set_grandparent(void) { set_pg_id(getpid() + 1); }

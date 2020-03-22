@@ -43,7 +43,8 @@ enum exit_codes {
   SIG_FAIL = 8,
   STAT_FAIL = 9,
   FILE_OPEN_ERROR = 10,
-  TIME_ERROR = 11
+  TIME_ERROR = 11,
+  ENV_ERROR = 12
 };
 
 /** write a log message */
