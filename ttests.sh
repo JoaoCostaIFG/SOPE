@@ -68,6 +68,7 @@ test "-labLSB512"
 
 # big L
 if [ "$2" = "-L" ]; then
+  echo "Running -L tests"
   test "-lbLS"
   test "-lLSB512"
   test "-laLB512"
