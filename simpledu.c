@@ -254,7 +254,8 @@ int main(int argc, char *argv[]) {
   init(argc, argv, &prog_props);
 
   /* fd memes */
-  get_upstream_fd(&prog_props.upstream_fd);
+  if (get_upstream_fd(&prog_props.upstream_fd))
+    fputs("Failed to filter the current process' pipes", stderr);
 
   /* fork subdirs and process files */
   path_handler(argv);

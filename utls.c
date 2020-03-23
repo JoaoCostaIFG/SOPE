@@ -125,12 +125,14 @@ int set_fd_filter(void) {
 }
 
 int get_filtered_fd(int *upstream_fd) {
+  /* getting the pipes to filter out */
   char *filter;
   if ((filter = getenv(FILTER_ENV)) == NULL) {
     /* weird failure */
     *upstream_fd = STDOUT_FILENO;
     return 1;
   }
+
   int fd_info_len;
   char fd_info[51];
   int fd_r;
@@ -174,7 +176,6 @@ int get_filtered_fd(int *upstream_fd) {
       if (strstr(filter, fd_info) == NULL) {
         ++candidate_num;
         *upstream_fd = fd_r;
-        return 0;
       }
     }
   }
