@@ -2,6 +2,8 @@
 #ifndef PROGPROP_INTERFACE_H
 #define PROGPROP_INTERFACE_H
 
+#include <stddef.h>
+
 /** Max. file path size */
 #define MAX_PATH_SIZE 4096
 
@@ -24,7 +26,7 @@ struct prog_prop {
   int separate_dirs;
   long int max_depth;
   char path[MAX_PATH_SIZE + 1];
-  unsigned child_num;
+  size_t child_num;
   int upstream_fd;
 };
 typedef struct prog_prop prog_prop;

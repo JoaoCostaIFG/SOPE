@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "include/init.h"
 #include "include/logs.h"
@@ -66,7 +67,7 @@ int is_str_num(char *str) {
 }
 
 void init(int argc, char **argv, prog_prop *prog_props) {
-  set_logfile(NULL); // set log file name
+  set_logfile(NULL);    // set log file name
   get_reftime();        // get/save program's reference starting time
   getGrpId();           // set child status
   if (is_grandparent()) // clr logs if grandparent

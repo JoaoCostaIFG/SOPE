@@ -10,7 +10,7 @@
 
 #include "include/init.h"
 #include "include/logs.h"
-#include "include/sigs.h"
+#include "include/parent_interface.h"
 #include "include/utls.h"
 
 #define STAT_DFLT_SIZE 512
@@ -135,8 +135,9 @@ void read_files(DIR *dirp) {
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
     if ((prog_props.dereference ? stat(path, &stat_buf)
-                                : lstat(path, &stat_buf)) < 0)
+                                : lstat(path, &stat_buf)) < 0) {
       perror(path);
+    }
 
     // TODO FIFOS and other file types?
     /* if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) { */
@@ -170,8 +171,9 @@ void read_dirs(DIR *dirp, char **argv) {
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
     if ((prog_props.dereference ? stat(path, &stat_buf)
-                                : lstat(path, &stat_buf)) < 0)
+                                : lstat(path, &stat_buf)) < 0) {
       perror(path);
+    }
 
     if (S_ISDIR(stat_buf.st_mode)) {
       int fd[2]; // pipe to communicate size upstream
