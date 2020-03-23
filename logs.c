@@ -8,13 +8,22 @@
 #include "include/logs.h"
 #include "include/utls.h"
 
+/** log file environment name */
+#define LOG_ENV_NAME "LOG_FILENAME"
+
+/** log start time reference environment names */
 #define TIMEREF_S_ENV "SIMPLEDU_S_TIMEREF"
 #define TIMEREF_NS_ENV "SIMPLEDU_NS_TIMEREF"
 
-#define MAX_TIME_LEN 30
+/** signal texts */
+#define SIGCONT_TEXT "SIGCONT"
+#define SIGINT_TEXT "SIGINT"
+#define SIGSTOP_TEXT "SIGSTOP"
+#define SIGTERM_TEXT "SIGTERM"
 
 #define NANOSINSEC 1000000000
 #define MILISINNANO 1000000
+#define MAX_TIME_LEN 30
 
 static char log_file[MAX_LOG_PATH_SIZE + 1] = LOG_DIR LOG_FILE;
 static struct timespec tm;
@@ -130,6 +139,10 @@ void exit_err_log(int exit_code, char *msg) {
 }
 
 void set_logfile(char *new_logfile) {
+  if (new_logfile == NULL) {
+    new_logfile = getenv(LOG_ENV_NAME);
+  }
+
   if (new_logfile) {
     strcpy(log_file, LOG_DIR);
     strncpy(log_file, new_logfile, MAX_LOG_PATH_SIZE);

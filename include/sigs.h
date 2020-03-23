@@ -1,15 +1,12 @@
+/** @file sigs.h */
 #ifndef SIGS_H
 #define SIGS_H
 
 #include <unistd.h>
 
+#include "parent_interface.h"
+
 pid_t getGrpId(void);
-
-void set_grandparent(void);
-
-int is_child(void);
-
-int is_grandparent(void);
 
 void sigint_handler(int signum);
 

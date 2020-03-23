@@ -66,7 +66,7 @@ int is_str_num(char *str) {
 }
 
 void init(int argc, char **argv, prog_prop *prog_props) {
-  set_logfile(getenv(LOG_ENV_NAME)); // set log file name
+  set_logfile(NULL); // set log file name
   get_reftime();        // get/save program's reference starting time
   getGrpId();           // set child status
   if (is_grandparent()) // clr logs if grandparent

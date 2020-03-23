@@ -2,7 +2,9 @@
 #ifndef LOGS_H
 #define LOGS_H
 
-#include <unistd.h>
+#include <sys/types.h>
+
+#include "err_interface.h"
 
 /** max log file name size */
 #define MAX_LOG_PATH_SIZE 256
@@ -13,9 +15,8 @@
 /** log file name */
 #define LOG_FILE "simpledu_log.txt"
 
-/** log file environment name */
-#define LOG_ENV_NAME "LOG_FILENAME"
-#define LOG_ENV_TIME "SIMPLEDU_START_TIME"
+/** write a log message */
+void write_log(char *action, char *info);
 
 /** logs types */
 #define CREATE_LOG "CREATE"
@@ -25,30 +26,6 @@
 #define RECVPIPE_LOG "RECV_PIPE"
 #define SENDPIPE_LOG "SEND_PIPE"
 #define ENTRY_LOG "ENTRY"
-
-/** signal texts */
-#define SIGCONT_TEXT "SIGCONT"
-#define SIGINT_TEXT "SIGINT"
-#define SIGSTOP_TEXT "SIGSTOP"
-#define SIGTERM_TEXT "SIGTERM"
-
-enum exit_codes {
-  INIT = 1,
-  FAILED_OPENDIR = 2,
-  NON_EXISTING_ENTRY = 3,
-  FORK_FAIL = 4,
-  PIPE_FAIL = 5,
-  EXEC_FAIL = 6,
-  MALLOC_FAIL = 7,
-  SIG_FAIL = 8,
-  STAT_FAIL = 9,
-  FILE_OPEN_ERROR = 10,
-  TIME_ERROR = 11,
-  ENV_ERROR = 12
-};
-
-/** write a log message */
-void write_log(char *action, char *info);
 
 /** log wrappers */
 #define LOG_CREATE(info) write_log(CREATE_LOG, info)
@@ -77,16 +54,10 @@ void write_recvsig_log(int signum);
 /** @brief Format and write signal sending event to log. */
 void write_sendsig_log(int signum, pid_t pid);
 
-/** @brief Write exit log message and exit with given code. */
-void exit_log(int exit_code);
-
-/** @brief Write stderr error message and call exit_log. */
-void exit_err_log(int exit_code, char *msg);
-
-/** @brief Write perror message and call exit_log. */
-void exit_perror_log(int exit_code, char *msg);
-
-/** @brief Sets the log file name. */
+/** @brief Sets the log file name.
+ *  @note If new_logfile is NULL, the name will be gotten from the env. var.
+ * LOG_FILENAME
+ */
 void set_logfile(char *new_logfile);
 
 /** @brief Clears the log file. */

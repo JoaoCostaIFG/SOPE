@@ -5,8 +5,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "include/logs.h"
-#include "include/sigs.h"
+#include "include/err_interface.h"
+#include "include/parent_interface.h"
 #include "include/utls.h"
 
 #define FILTER_ENV "SIMPLEDU_FILTER"
