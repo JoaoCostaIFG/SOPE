@@ -11,6 +11,7 @@
 #include "include/init.h"
 #include "include/logs.h"
 #include "include/sigs.h"
+#include "include/utls.h"
 
 #define STAT_DFLT_SIZE 512
 #define MAX_CHILDREN 500
@@ -249,36 +250,11 @@ void path_handler(char **argv) {
   pipe_send();
 }
 
-void get_upstream_fd(void) {
-  if (is_grandparent())
-    return;
-
-  char proc_path[50];
-  sprintf(proc_path, "/proc/%d/fd/", getpid());
-  char path[100];
-  DIR *dirp = opendir(proc_path);
-  struct dirent *direntp;
-  struct stat stat_buf;
-  while ((direntp = readdir(dirp))) {
-    pathcpycat(path, proc_path, direntp->d_name);
-    stat(path, &stat_buf);
-    if (S_ISFIFO(stat_buf.st_mode)) { // is pipe?
-      prog_props.upstream_fd = atoi(direntp->d_name);
-
-      /* printf("%d\n", prog_props.upstream_fd); */
-      if (prog_props.upstream_fd != STDIN_FILENO &&
-          prog_props.upstream_fd != STDOUT_FILENO &&
-          prog_props.upstream_fd != STDERR_FILENO)
-        return;
-    }
-  }
-}
-
 int main(int argc, char *argv[]) {
   init(argc, argv, &prog_props);
 
   /* fd memes */
-  get_upstream_fd();
+  get_upstream_fd(&prog_props.upstream_fd);
 
   /* fork subdirs and process files */
   path_handler(argv);

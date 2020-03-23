@@ -17,4 +17,6 @@ int get_env_long(char *name, long *val);
 
 int get_env_longlong(char *name, long long *val);
 
+int get_upstream_fd(int *upstream_fd);
+
 #endif // UTLS_H
