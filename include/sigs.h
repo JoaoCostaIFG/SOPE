@@ -2,7 +2,7 @@
 #ifndef SIGS_H
 #define SIGS_H
 
-#include <unistd.h>
+#include <sys/types.h>
 
 #include "parent_interface.h"
 
