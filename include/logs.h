@@ -37,16 +37,16 @@ void write_log(char *action, char *info);
 #define LOG_ENTRY(info) write_log(ENTRY_LOG, info)
 
 /** @brief Format and write entry to log. */
-void write_entry_log(unsigned size, char *name);
+void write_entry_log(unsigned long size, char *name);
 
 /** @brief Format and write command line arguments to log. */
 void write_create_log(char **argv);
 
 /** @brief Format and write signal receiving event to log. */
-void write_recvpipe_log(long info);
+void write_recvpipe_log(unsigned long info);
 
 /** @brief Format and write signal sending event to log. */
-void write_sendpipe_log(long info);
+void write_sendpipe_log(unsigned long info);
 
 /** @brief Format and write signal receiving event to log. */
 void write_recvsig_log(int signum);

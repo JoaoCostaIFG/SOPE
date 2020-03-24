@@ -54,9 +54,9 @@ void write_log(char *action, char *info) {
   fclose(fp);
 }
 
-void write_entry_log(unsigned size, char *name) {
+void write_entry_log(unsigned long size, char *name) {
   char info[MAX_LOG_PATH_SIZE + 1];
-  sprintf(info, "%u - %s", size, name);
+  sprintf(info, "%lu - %s", size, name);
 
   LOG_ENTRY(info);
 }
@@ -80,15 +80,15 @@ void write_create_log(char **argv) {
   fclose(fp);
 }
 
-void write_recvpipe_log(long info) {
+void write_recvpipe_log(unsigned long info) {
   char str[256];
-  sprintf(str, "%ld", info);
+  sprintf(str, "%lu", info);
   LOG_RECVPIPE(str);
 }
 
-void write_sendpipe_log(long info) {
+void write_sendpipe_log(unsigned long info) {
   char str[256];
-  sprintf(str, "%ld", info);
+  sprintf(str, "%lu", info);
   LOG_SENDPIPE(str);
 }
 

@@ -43,13 +43,11 @@ unsigned long calc_size(struct stat *stat_buf) {
 void pipe_send() {
   if (is_child()) {
     // write size to pipe
-    char my_size_str[PIPE_BUF + 1];
-    sprintf(my_size_str, "%lu\n", my_size);
-    write(prog_props.upstream_fd, my_size_str, strlen(my_size_str));
+    write(prog_props.upstream_fd, &my_size, sizeof(unsigned long));
+    write_sendpipe_log(my_size); // log pipe send
 
     if (close(prog_props.upstream_fd) == -1)
       exit_perror_log(PIPE_FAIL, "");
-    write_sendpipe_log(my_size); // log pipe send
   } else {
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
            prog_props.path);
@@ -64,7 +62,6 @@ void rm_child(pid_t pid) {
     return;
 
   int read_len;
-  char pipe_content[PIPE_BUF + 1];
   unsigned long size;
   char entry[MAX_PATH_SIZE];
   for (size_t i = 0; i < prog_props.child_num; ++i) {
@@ -72,19 +69,16 @@ void rm_child(pid_t pid) {
       children[i].pid = -1;
 
       // read pipe info
-      if ((read_len = read(children[i].fd, pipe_content, PIPE_BUF)) == -1)
+      if ((read_len = read(children[i].fd, &size, sizeof(unsigned long))) == -1)
         exit_perror_log(PIPE_FAIL, "Reading from pipe failure");
       else if (read_len == 0)
         size = 0;
-      else {
-        if (sscanf(pipe_content, "%lu", &size) != 1)
-          size = 0;
-      }
+      write_recvpipe_log(size);
+
       if (close(children[i].fd) == -1)
         exit_perror_log(PIPE_FAIL, "");
 
-      /* logs */
-      LOG_RECVPIPE(pipe_content);
+      /* logs entry */
       pathcpycat(entry, prog_props.path, children[i].path);
       write_entry_log(size, entry);
       free(children[i].path);
