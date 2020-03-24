@@ -7,17 +7,17 @@ F1="simpledu_res"
 F2="du_res"
 
 test() {
-  ./simpledu "$@" "$TARGET" | sort -k2 >"$F1"
+  src/simpledu "$@" "$TARGET" | sort -k2 >"$F1"
   du "$@" "$TARGET" | sort -k2 >"$F2"
   diff -q "$F1" "$F2" || echo "fail ops" "$@" "on target" "$TARGET"
   rm "$F1" "$F2"
 
-  ./simpledu "$@" "$TARGET2" | sort -k2 >"$F1"
+  src/simpledu "$@" "$TARGET2" | sort -k2 >"$F1"
   du "$@" "$TARGET2" | sort -k2 >"$F2"
   diff -q "$F1" "$F2" || echo "fail ops" "$@" "on target" "$TARGET2"
   rm "$F1" "$F2"
 
-  ./simpledu "$@" "$TARGET3" | sort -k2 >"$F1"
+  src/simpledu "$@" "$TARGET3" | sort -k2 >"$F1"
   du "$@" "$TARGET3" | sort -k2 >"$F2"
   diff -q "$F1" "$F2" || echo "fail ops" "$@" "on target" "$TARGET3"
   rm "$F1" "$F2"
@@ -34,7 +34,8 @@ if [ "$#" -ne 0 ]; then
     exit 0
   fi
 fi
-make || echo "Can't make."
+
+cd src && make && cd .. || echo "Can't make." || exit 1
 echo ""
 
 # 1
@@ -90,7 +91,7 @@ test "-la" "--max-depth" "0"
 test "-lb" "--max-depth" "1"
 test "-lSa" "--max-depth" "2"
 
-make clean
+cd src && make clean && cd ..
 echo ""
 echo "Finished"
 echo ""
