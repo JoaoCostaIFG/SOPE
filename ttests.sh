@@ -9,17 +9,17 @@ F2="du_res"
 test() {
   src/simpledu "$@" "$TARGET" | sort -k2 >"$F1"
   du "$@" "$TARGET" | sort -k2 >"$F2"
-  diff -q "$F1" "$F2" || echo "fail ops" "$@" "on target" "$TARGET"
+  diff -q "$F1" "$F2" && echo "OK" || echo "fail ops" "$@" "on target" "$TARGET"
   rm "$F1" "$F2"
 
   src/simpledu "$@" "$TARGET2" | sort -k2 >"$F1"
   du "$@" "$TARGET2" | sort -k2 >"$F2"
-  diff -q "$F1" "$F2" || echo "fail ops" "$@" "on target" "$TARGET2"
+  diff -q "$F1" "$F2" && echo "OK" || echo "fail ops" "$@" "on target" "$TARGET2"
   rm "$F1" "$F2"
 
   src/simpledu "$@" "$TARGET3" | sort -k2 >"$F1"
   du "$@" "$TARGET3" | sort -k2 >"$F2"
-  diff -q "$F1" "$F2" || echo "fail ops" "$@" "on target" "$TARGET3"
+  diff -q "$F1" "$F2" && echo "OK" || echo "fail ops" "$@" "on target" "$TARGET3"
   rm "$F1" "$F2"
 }
 

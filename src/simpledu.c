@@ -22,13 +22,11 @@
 #define SINGLE_REAP 3
 #define REAP_ALL -1
 
-struct child_elem {
+static struct child_elem {
   pid_t pid; // if > 0 pid o process, if -1 process dead
   char *path;
   int fd;
-};
-typedef struct child_elem child_elem;
-static child_elem children[MAX_CHILDREN];
+} children[MAX_CHILDREN];
 
 static prog_prop prog_props;
 static unsigned long my_size;
