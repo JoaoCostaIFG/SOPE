@@ -164,7 +164,7 @@ void init(int argc, char ***argv_ret, char **argv, prog_prop *prog_props) {
     while (optind < argc)
       pathcat(prog_props->path, argv[optind++]);
   } else {
-    char **new_argv = (char **)malloc(sizeof(argv) + 1);
+    char **new_argv = (char **)malloc(sizeof(char*) * (sizeof(argv) + 1));
 
     int i = 0;
     while (argv[i] != NULL) {

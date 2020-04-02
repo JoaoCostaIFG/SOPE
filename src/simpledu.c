@@ -91,7 +91,7 @@ void rm_child(pid_t pid, int statloc) {
       if (!prog_props.separate_dirs) // skip sub-dir size
         my_size += size;
 
-      prog_props.has_failed = WEXITSTATUS(statloc) != 0 ? 1 : 0;
+      prog_props.has_failed = WEXITSTATUS(statloc) != EXIT_SUCCESS ? 1 : 0;
       return;
     }
   }
@@ -234,7 +234,7 @@ void path_handler(char **argv) {
     prog_props.has_failed = 1;
     exit_perror_log(NON_EXISTING_ENTRY, prog_props.path);
   }
-  if (!S_ISDIR(stat_buf.st_mode)) {
+  if (!S_ISDIR(stat_buf.st_mode)) { // is file
     my_size = calc_size(&stat_buf);
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
            prog_props.path);
