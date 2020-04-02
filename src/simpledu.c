@@ -55,7 +55,7 @@ void pipe_send() {
   }
 }
 
-void rm_child(pid_t pid) {
+void rm_child(pid_t pid, int statloc) {
   if (pid < 0)
     return;
 
@@ -90,6 +90,8 @@ void rm_child(pid_t pid) {
 
       if (!prog_props.separate_dirs) // skip sub-dir size
         my_size += size;
+
+      prog_props.has_failed = WEXITSTATUS(statloc) != 0 ? 1 : 0;
       return;
     }
   }
@@ -99,14 +101,15 @@ void child_reaper(int reap_num) {
   if (!prog_props.child_num)
     return;
 
+  int statloc;
   if (reap_num == -1) {
     for (size_t i = 0; i < prog_props.child_num; ++i) {
-      rm_child(wait(NULL));
+      rm_child(wait(&statloc), statloc);
     }
   } else {
     errno = 0;
     while (errno != ECHILD && reap_num > 0) {
-      rm_child(waitpid(-1, NULL, WNOHANG));
+      rm_child(waitpid(-1, &statloc, WNOHANG), statloc);
       --reap_num;
     }
   }
@@ -126,14 +129,21 @@ void read_files(DIR *dirp) {
 
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
+    errno = 0;
     if ((prog_props.dereference ? stat(path, &stat_buf)
                                 : lstat(path, &stat_buf)) < 0) {
-      perror(path);
+      prog_props.has_failed = 1;
     }
 
-    // TODO FIFOS and other file types?
-    /* if (S_ISREG(stat_buf.st_mode) || S_ISLNK(stat_buf.st_mode)) { */
-    if (!S_ISDIR(stat_buf.st_mode)) {
+    if (!S_ISDIR(stat_buf.st_mode)) { // TODO FIFOS and other file types?
+      if (errno) {
+        if (errno == ENOENT) { // broken symlink
+          fprintf(stderr, "simpledu: cannot access '%s'\n", path);
+          continue;
+        }
+        perror(path);
+      }
+
       size = calc_size(&stat_buf);
       my_size += size;
 
@@ -162,12 +172,21 @@ void read_dirs(DIR *dirp, char **argv) {
 
     /* get formatted file path */
     pathcpycat(path, prog_props.path, direntp->d_name);
+    errno = 0;
     if ((prog_props.dereference ? stat(path, &stat_buf)
                                 : lstat(path, &stat_buf)) < 0) {
-      perror(path);
+      prog_props.has_failed = 1;
     }
 
     if (S_ISDIR(stat_buf.st_mode)) {
+      if (errno) {
+        if (errno == ENOENT) { // broken symlink
+          fprintf(stderr, "simpledu: cannot access '%s'\n", path);
+          continue;
+        }
+        perror(path);
+      }
+
       int fd[2]; // pipe to communicate size upstream
       pipe(fd);
 
@@ -211,8 +230,10 @@ void path_handler(char **argv) {
   /* test if file was given, and handle it */
   struct stat stat_buf;
   if ((prog_props.dereference ? stat(prog_props.path, &stat_buf)
-                              : lstat(prog_props.path, &stat_buf)) == -1)
+                              : lstat(prog_props.path, &stat_buf)) == -1) {
+    prog_props.has_failed = 1;
     exit_perror_log(NON_EXISTING_ENTRY, prog_props.path);
+  }
   if (!S_ISDIR(stat_buf.st_mode)) {
     my_size = calc_size(&stat_buf);
     printf("%lu\t%s\n", lu_ceil((double)my_size / prog_props.block_size),
@@ -224,6 +245,7 @@ void path_handler(char **argv) {
   /* handle dires and their files/links */
   if ((prog_props.dereference ? stat(prog_props.path, &stat_buf)
                               : lstat(prog_props.path, &stat_buf)) < 0) {
+    prog_props.has_failed = 1;
     pipe_send();
     exit_perror_log(STAT_FAIL, prog_props.path);
   }
@@ -254,5 +276,5 @@ int main(int argc, char *argv[]) {
   /* fork subdirs and process files */
   path_handler(argv);
 
-  exit_log(EXIT_SUCCESS);
+  exit_log(prog_props.has_failed ? EXIT_FAILURE : EXIT_SUCCESS);
 }

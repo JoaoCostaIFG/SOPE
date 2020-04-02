@@ -15,6 +15,7 @@
 #define DFLT_DEREF_OP 0
 #define DFLT_SEPDIRS_OP 0
 #define DFLT_MAXDPTH_OP -1
+#define DFLT_HAS_FAILED 0
 
 /** options */
 struct prog_prop {
@@ -26,6 +27,7 @@ struct prog_prop {
   int separate_dirs;
   long int max_depth;
   char path[MAX_PATH_SIZE + 1];
+  int has_failed;
   size_t child_num;
   int upstream_fd;
 };

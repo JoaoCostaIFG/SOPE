@@ -84,6 +84,7 @@ void init(int argc, char ***argv_ret, char **argv, prog_prop *prog_props) {
   prog_props->separate_dirs = DFLT_SEPDIRS_OP;
   prog_props->max_depth = DFLT_MAXDPTH_OP; // default is infinite maxdepth
   prog_props->path[0] = '\0';
+  prog_props->has_failed = DFLT_HAS_FAILED;
   prog_props->child_num = 0;
   prog_props->upstream_fd = STDOUT_FILENO;
 
