@@ -66,7 +66,7 @@ int is_str_num(char *str) {
   return 1;
 }
 
-void init(int argc, char **argv, prog_prop *prog_props) {
+void init(int argc, char ***argv_ret, char **argv, prog_prop *prog_props) {
   set_logfile(NULL);    // set log file name
   get_reftime();        // get/save program's reference starting time
   getGrpId();           // set child status
@@ -163,7 +163,21 @@ void init(int argc, char **argv, prog_prop *prog_props) {
     while (optind < argc)
       pathcat(prog_props->path, argv[optind++]);
   } else {
-    print_usage();
+    char **new_argv = (char **)malloc(sizeof(argv) + 1);
+
+    int i = 0;
+    while (argv[i] != NULL) {
+      new_argv[i] = (char *)malloc(strlen(argv[i]) + 1);
+      strcpy(new_argv[i], argv[i]);
+      ++i;
+    }
+    new_argv[i] = (char *)malloc(sizeof(char) * 2);
+    strcpy(new_argv[i], ".");
+    strcpy(prog_props->path, ".");
+    new_argv[i + 1] = NULL;
+    *argv_ret = new_argv;
+
+    /* print_usage(); */
   }
 }
 

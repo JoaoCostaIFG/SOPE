@@ -245,7 +245,7 @@ void path_handler(char **argv) {
 }
 
 int main(int argc, char *argv[]) {
-  init(argc, argv, &prog_props);
+  init(argc, &argv, argv, &prog_props);
 
   /* fd memes */
   if (get_upstream_fd(&prog_props.upstream_fd))

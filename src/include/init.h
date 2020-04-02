@@ -13,7 +13,7 @@ void pathcat(char *path, char *file_name);
 /** @brief similar to pathcat but leaves stores result in res */
 void pathcpycat(char *res, char *p1, char *p2);
 
-void init(int argc, char **argv, prog_prop *prog_props);
+void init(int argc, char ***argv_ret, char **argv, prog_prop *prog_props);
 
 void assemble_args(char **argv, prog_prop *prog_props, char *new_path);
 
