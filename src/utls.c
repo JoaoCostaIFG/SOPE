@@ -103,13 +103,14 @@ int set_fd_filter(void) {
 
       /* alloc memory and assemble filter */
       if (filter == NULL) { // first item
-        filter = (char *)malloc(sizeof(char) * (strlen(fd_info) + 2));
+        if ((filter = (char *)malloc(sizeof(char) * (strlen(fd_info) + 2))) == NULL)
+          exit_log(MALLOC_FAIL);
         strcpy(filter, fd_info);
         filter[fd_info_len] = '\n';
         filter[fd_info_len + 1] = '\0';
       } else {
         filter_len = strlen(filter) + strlen(fd_info);
-        filter = realloc(filter, sizeof(char) * (filter_len + 1));
+        filter = realloc(filter, sizeof(char) * (filter_len + 2));
 
         strcat(filter, fd_info);
         filter[filter_len] = '\n';
@@ -118,10 +119,14 @@ int set_fd_filter(void) {
     }
   }
 
-  if (filter == NULL) // nothing to filter
-    filter = "";
+  closedir(dirp);
 
-  return setenv(FILTER_ENV, filter, 1);
+  if (filter == NULL) // nothing to filter
+    return setenv(FILTER_ENV, "", 1);
+
+  int ret = setenv(FILTER_ENV, filter, 1);
+  free(filter);
+  return ret;
 }
 
 int get_filtered_fd(int *upstream_fd) {
@@ -179,6 +184,8 @@ int get_filtered_fd(int *upstream_fd) {
       }
     }
   }
+
+  closedir(dirp);
 
   if (candidate_num != 1)
     return 1;
