@@ -56,16 +56,10 @@ test "-lSB512"
 test "-labB512"
 test "-labS"
 test "-laSB512"
-test "-lbLB512"
 test "-lbSB512"
 
 # 4
-test "-labLB512"
 test "-labSB512"
-test "-lbLSB512"
-
-# 5
-test "-labLSB512"
 
 # big L
 if [ "$2" = "-L" ]; then
@@ -73,6 +67,7 @@ if [ "$2" = "-L" ]; then
   test "-lbLS"
   test "-lLSB512"
   test "-laLB512"
+  test "-lbLB512"
   test "-labL"
   test "-lLS"
   test "-lLB512"
@@ -81,6 +76,10 @@ if [ "$2" = "-L" ]; then
   test "-lL"
   test "-labLS"
   test "-laLSB512"
+  test "-labLB512"
+  test "-lbLSB512"
+  # 5
+  test "-labLSB512"
 fi
 
 # block size
