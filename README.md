@@ -19,6 +19,7 @@ To run the program: `simpledu -l [path] [-a] [-b] [-B size] [-L] [-S]
 argument: `simpledu -lLabS`.
 
 ## License
+
 The code in this repository is published under a GNU General
 Public License: **gpl-3.0**.
 
