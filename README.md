@@ -4,5 +4,10 @@ Operative systems class.
 
 ## Collaborators
 
-The code for the 1st and 2nd projects was developed in collaboration with two
-of my friends (check repository's collaborator list).
+Projects made by João de Jesus Costa (me), João Lucas Silva Martins and
+Ricardo Jorge Cruz Fontão.
+
+## License
+
+The code in this repository is published under a GNU General
+Public License: **gpl-3.0**.
