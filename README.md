@@ -4,8 +4,10 @@ Operative systems class.
 
 ## Collaborators
 
-Projects made by João de Jesus Costa (me), João Lucas Silva Martins and
-Ricardo Jorge Cruz Fontão.
+This project was developed in a group with 2 of my friend:
+
+- [João Lucas Martins](https://github.com/joaolucasmartins)
+- [Ricardo Fontão](https://github.com/ricardofontao2000)
 
 ## License
 
