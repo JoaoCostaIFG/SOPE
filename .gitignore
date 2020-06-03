@@ -2,4 +2,11 @@
 *.o
 *a.out
 */simpledu
-Proj2
+CS_SESSION
+*Q1
+*U1
+*Q2
+*U2
+*.err
+*.log
+**/src/fifo

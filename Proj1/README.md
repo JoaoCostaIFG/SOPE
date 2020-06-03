@@ -6,9 +6,10 @@ Check this repo's collaborators section to see my project partners.
 
 ## Collaborators
 
-Project made by João de Jesus Costa, João Lucas Silva Martins and
-Ricardo Jorge Cruz Fontão for the SOPE (FEUP -- MIEIC) curricular
-unit.
+This project was developed by _João Costa_ (me), [João Lucas](https://github.com/joaolucasmartins)
+and [Ricardo Fontão](https://github.com/ricardofontao2000) for our Operating
+Systems class (SOPE) at [MIEIC, FEUP](https://sigarra.up.pt/feup/en/cur_geral.cur_view?pv_curso_id=742)
+(2019/2020).  
 
 ## Compilation
 
